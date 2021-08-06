@@ -1,0 +1,41 @@
+@init
+
+SNAP_QUEUE_LENGTH = 30;
+MAX_N_POINTS=25;
+
+drawFftBufferSize = 10000;
+
+
+FFT_MEMORY            	= 0; 	  // memalloc, size 1 mega circa
+
+SLIDERS_AREA			= 1000010;
+
+DRAW_FFT_BUFFER_MEMORY	= 1010000; // 10 k
+POINT_MEMORY          	= 1020000; // size circa 1 mega (25 points a 16k = 821700)
+QUEUE_MEMORY          	= 2000000; // size circa 1m     (25 points a 16k = 986040)
+LOG_MEMORY            	= 3000000; // size 10
+
+drawFFTBufLeft		  	= 3010000; // size  HALF_FFTSIZE, max 8k
+drawFFTBufRight		  	= 3020000; // size  HALF_FFTSIZE, max 8k
+
+wbandm_l 			  	= 3030000; // size  HALF_FFTSIZE, max 8k
+wbandf_l 			  	= 3040000; // size  HALF_FFTSIZE, max 8k
+wbandm_r 			  	= 3050000; // size  HALF_FFTSIZE, max 8k
+wbandf_r 			  	= 3060000; // size  HALF_FFTSIZE, max 8k
+
+drawSpecBufLeft    	  	= 3070000; // size  HALF_FFTSIZE, max 8k
+drawSpecBufRight   	  	= 3080000; // size  HALF_FFTSIZE, max 8k
+oscilloscopeBuf	      	= 3090000; // size  FFTSIZE, max 16k
+enhPivot 	       	  	= 3110000; // size  FFTSIZE, max 16k
+
+ml						= 3130000; // size  HALF_FFTSIZE, max 8k
+fl						= 3140000; // size  HALF_FFTSIZE, max 8k
+mr						= 3150000; // size  HALF_FFTSIZE, max 8k
+fr						= 3160000; // size  HALF_FFTSIZE, max 8k
+
+SERIALIZE_AREA			= 4000000; 
+GMEM_CONTROL_STATUS     = SERIALIZE_AREA-1;
+
+
+local_memalloc_start	= 5000000;
+UI_MEMORY				= 7000000; // size  circa 3k

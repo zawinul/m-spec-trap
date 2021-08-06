@@ -1,0 +1,172 @@
+//-------------------------------  
+@init
+//-------------------------------
+
+//MAP
+GM_STATUS_NORMAL        = 0;
+GM_STATUS_ASK_TO_UPD    = 10;
+GM_STATUS_OK_TO_UPD     = 11;
+GM_STATUS_UPDATED       = 12;
+GM_STATUS_UPD_RECEIVED  = 13;
+
+GM_STATUS_ASK_TO_PRESET   = 20;
+GM_STATUS_OK_TO_PRESET    = 21;
+GM_STATUS_PRESET_SET      = 22;
+GM_STATUS_PRESET_RECEIVED = 23;
+
+IGNORED_PARAM_VALUE = -3456.75;
+
+gmem[GMEM_CONTROL_STATUS]=GM_STATUS_NORMAL;
+
+function gwrite(v) (
+	gmem[gmemPtr] = v;
+	gmemPtr+=1;
+);
+
+
+function gread() (
+	gmemPtr+=1;
+	gmem[gmemPtr-1];
+);
+
+gmemPtr=SERIALIZE_AREA;
+
+function serializePoint(p) local(i n ptr str adr) (
+	ptr = points[p];
+	str = STR_POINT_NAMES+p;
+	
+	//sprintf(log.get(), "serialize point %d %s", p, str);
+	n = strlen(str);
+	i = 0;
+	loop(n,
+		gwrite(str_getchar(str, i));
+		i+=1;
+	);
+	gwrite(0);
+
+	i=0;
+	loop(N_INITIAL_PARAMETERS,
+		gwrite(ptr[i]);
+		i+=1;
+	);
+
+	i=0;
+	adr = ptr[SNAP_M];
+	loop(HALF_FFTSIZE,
+		gwrite(adr[i]);
+		i+=1;
+	);
+
+	i=0;
+	adr = ptr[SNAP_F];
+	loop(HALF_FFTSIZE,
+		gwrite(adr[i]);
+		i+=1;
+	);
+);
+
+
+function deserializePoint(p) local(i n c ptr str adr) (
+	ptr = points[p];
+	initPVSnap(ptr);
+	str = STR_POINT_NAMES+p;
+	
+	strcpy(str, "");
+
+	i=0;
+	while(
+		c = gread();
+		c>0 ? sprintf(str, "%s%c", str, c);
+		c>0;
+	);
+	sprintf(log.get(), "deserialize point %d %s", p, str);
+
+
+	i=0;
+	loop(N_INITIAL_PARAMETERS,
+		c = gread();
+		c!=	IGNORED_PARAM_VALUE ? (
+			i<=5 ? sprintf(log.get(), " par(%d)=%f",i,c);
+			ptr[i] = c;
+		);
+		i+=1;
+	);
+
+	i=0;
+	adr = ptr[SNAP_M];
+	sprintf(log.get(), "%s PTR=%D gmemPtr=%d Madr=%d", str, PTR, gmemPtr, adr);
+	loop(HALF_FFTSIZE,
+		adr[i] = gread();
+		i+=1;
+	);
+
+	i=0;
+	adr = ptr[SNAP_F];
+	loop(HALF_FFTSIZE,
+		adr[i] = gread();
+		i+=1;
+	);
+);
+
+function serializeOnGMem() local(i) (
+	a00_serializeOnGMem+=1;
+	//sprintf(log.get(), "serializeOnGMem %d", a00_serializeOnGMem);
+
+	lastDataChange = 0;
+	
+	gmemPtr=SERIALIZE_AREA;
+	i=0;
+	loop(64,
+		gwrite(slider(i));
+		i+=1;
+	);
+	gwrite(FFTSIZE);
+	gwrite(npoints);
+	i =0;
+	loop(npoints,
+		serializePoint(i);
+		i+=1;
+	);
+);
+
+
+function needsGmemDump() (
+	lastDataChange>0 && (time_precise()-lastDataChange > 10);
+);
+
+function updatePointsFromGmem() (
+	a00_updatePointsFromGmem+=1;
+	sprintf(log.get(), "updatePointsFromGmem %d", a00_updatePointsFromGmem);
+
+	lastDataChange = 0;
+	
+	gmemPtr=SERIALIZE_AREA;
+	loop(64,
+		gread(); // slider
+	);
+	gread(); //FFTSIZE
+	npoints = gread();
+	i =0;
+	loop(npoints,
+		deserializePoint(i);
+		i+=1;
+	);
+);
+
+function handleGmemStatus() local (s) (
+	a00_handleGmemStatus+=1;
+	s = gmem[GMEM_CONTROL_STATUS];
+	s==GM_STATUS_NORMAL ? disableSerializeOnGMem=0;
+
+	s==GM_STATUS_ASK_TO_UPD ? (
+		a00_GM_STATUS_ASK_TO_UPD+=1;
+		disableSerializeOnGMem = 1;
+		gmem[GMEM_CONTROL_STATUS] = GM_STATUS_OK_TO_UPD;
+	);
+
+	s==GM_STATUS_UPDATED ? (
+		// update points
+		updatePointsFromGmem();
+		gmem[GMEM_CONTROL_STATUS] = GM_STATUS_UPD_RECEIVED;
+	);
+);

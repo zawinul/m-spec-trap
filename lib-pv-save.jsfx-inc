@@ -1,0 +1,35 @@
+@init
+
+
+
+function initPVSaveLib() local(i t) (
+	memset(QUEUE_MEMORY, 0, SNAP_QUEUE_LENGTH+SNAP_QUEUE_LENGTH*pvSnapSize());
+
+	nextFFTBuffer = 0;
+	snapQueue = QUEUE_MEMORY;
+	t = snapQueue+SNAP_QUEUE_LENGTH;
+	i = 0; 
+	loop(SNAP_QUEUE_LENGTH, 
+		snapQueue[i] = t;
+		initPVSnap(t);
+		t += pvSnapSize();  
+		i+=1;
+	);
+	a000_snapQueueSize = t-QUEUE_MEMORY;
+	nextSnapIn = 0;
+);
+
+
+function savePV(mag freq) local(snap)  (
+	snap = lastInputSnap = snapQueue[nextSnapIn];
+
+	memcpy(snap[SNAP_M], mag, HALF_FFTSIZE);
+	memcpy(snap[SNAP_F], freq, HALF_FFTSIZE);
+
+	nextSnapIn = (nextSnapIn+1) % SNAP_QUEUE_LENGTH;
+);
+
+
+
+getSnapRotate = 0;
+
