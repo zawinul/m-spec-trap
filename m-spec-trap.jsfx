@@ -54,7 +54,6 @@ options:want_all_kb
 ext_noinit=1;
 log.init();
 
-
 enableRecordOnPlay = 1;
 enableGlobalProcessing = 1;
 enableSingleProcessing = 1;
@@ -113,7 +112,7 @@ function mainInit() (
 	pvObjectInit();
 
 
-	xPlayLeft = yPlayRight = newmx = newmy = 0;
+	xPlayLeft = yPlayRight = cursor.x = cursor.y = 0;
 
 	outFFT = 0;
 	sendFFT = 0;
@@ -121,7 +120,7 @@ function mainInit() (
 	interpolatedOutFFT = 0;
 	interpolatedSendFFT = 0;
 
-	recording = 1;
+	status = STATUS_RECORD_NORMAL;
 	soloPoint = -1;
 
 	enableSound = saveEnableSound;
@@ -164,7 +163,7 @@ function slidersToParameters() local (i)(
 	 _gainDry = slider8==0 ? 0 : fromdb(dbDry);
 	 _gainSend = slider9==0 ? 0 : fromdb(dbSend);
 
-	 !recording && (autoXValue || autoYValue) ?(
+	 !isRecordMode() && (autoXValue || autoYValue) ?(
 		  autoMoving = 1;
 		  autoMoveSpeed = (1/60)*pow(60*10, slider10); //RoundsPerSecond
 		  autoMoveRadius = pow(slider18,3);
@@ -189,12 +188,12 @@ function slidersToParameters() local (i)(
 function drawOsc() local (i x cy y) (
 	 drawOscEnabled ? (
 		  gfx_set(255,255,255,.8);
-		  cy = (graphTop+graphBottom)/2;
+		  cy = (dragArea.top+dragArea.bottom)/2;
 		  i=0;
 
 		  loop(FFTSIZE,
-			   x = graphLeft+i*graphWidth/FFTSIZE;
-			   y = oscilloscopeBuf[i]*(graphHeight/2)*drawOscGain;
+			   x = dragArea.left+i*dragArea.width/FFTSIZE;
+			   y = oscilloscopeBuf[i]*(dragArea.height/2)*drawOscGain;
 			   gfx_line(x, cy, x, cy-y);
 			   i+=1;
 		  );
@@ -209,23 +208,23 @@ function setHelp() local(i label)(
 	label = pointLabel(curSelected);
 	nHelpStr = 0;
 
-	recording ? ( // rec
-		previewing ? (
-			sprintf(STR_HELP1, "captured spectre \"%s\"", label);
+	status == STATUS_RECORD_PREVIEW ? (
+		sprintf(STR_HELP1, "captured spectre \"%s\"", label);
+		nHelpStr = 1;
+	);
+
+	status == STATUS_RECORD_NORMAL && mouseIsInside ? (
+		curSelected<0 ? (
+			sprintf(STR_HELP1, "click to capture a spectre");
 			nHelpStr = 1;
 		) : (
-			mouseIsInside ? (
-				curSelected<0 ? (
-					sprintf(STR_HELP1, "click to capture a spectre");
-					nHelpStr = 1;
-				) : (
-					sprintf(STR_HELP1, "click to replace spectre \"%s\"", label);
-					sprintf(STR_HELP2, "SHIFT+click to MOVE spectre \"%s\"", label);
-					nHelpStr = 2;
-				);
-			);
-		)
-	 ) : ( // play
+			sprintf(STR_HELP1, "click to replace spectre \"%s\"", label);
+			sprintf(STR_HELP2, "SHIFT+click to MOVE spectre \"%s\"", label);
+			nHelpStr = 2;
+		);
+	);
+
+	isPlayMode() ? ( // play
 		dragging ? (
 			sprintf(STR_HELP1, "moving spectre \"%s\" ", label);
 			nHelpStr = 1;
@@ -261,7 +260,7 @@ function setInfo() local(i label t) (
 	);
 	sprintf(STR_INFO+i, "FFT sz: %d, OVL: %d", FFTSIZE, OVERLAPS);
 	i += 1;
-	!recording ? (
+	!isRecordMode() ? (
 		sprintf(STR_INFO+i, "α weight: %.2f", walpha);
 		i+=1;
 		sprintf(STR_INFO+i, "transpose: %.2f", globalTransposeHt);
@@ -272,7 +271,7 @@ function setInfo() local(i label t) (
 		? sprintf(STR_INFO+i, "out: -inf dB")
 		: sprintf(STR_INFO+i, "out: %.2f dB", dbDry);
 	i += 1;
-	!recording ? (
+	!isRecordMode() ? (
 		_gainSend==0 
 			? sprintf(STR_INFO+i, "send: -inf dB")
 			: sprintf(STR_INFO+i, "send: %.2f dB", dbSend);
@@ -280,10 +279,10 @@ function setInfo() local(i label t) (
 		i += 1;
 	);
 
-	snapTuning ? (
-		point = points[curTuningPoint];
+	isEditMode() ? (
+		point = points[curEditingPoint];
 		i = 0;
-		sprintf(STR_POINT_INFO+i,"[%s] %s" , pointLabel(curTuningPoint), STR_POINT_NAMES+curTuningPoint);
+		sprintf(STR_POINT_INFO+i,"[%s] %s" , pointLabel(curEditingPoint), STR_POINT_NAMES+curEditingPoint);
 		i += 1;
 
 		sprintf(STR_POINT_INFO+i,"gain: %.2f dB" , discretize(point[SNAP_GAIN]*48));
@@ -337,7 +336,7 @@ a01_points0y = points[0][SNAP_Y];
 CRASHERROR=npoints>0 && (points[0][SNAP_X]<0 || points[0][SNAP_X] >1 || points[0][SNAP_Y]<0 || points[0][SNAP_Y] >1);
 
 slidersToParameters();
-getMousePosition(); // aggiorna newmx newmy
+getMousePosition(); // aggiorna cursor.x cursor.y
 
 
 
@@ -369,7 +368,9 @@ isRead ? (
 		mainInit();
 		deserializeFFTSnaps();
 		serializeOnGMem();
-		npoints>0 ? recording = 0;
+		npoints>0 ? ( 
+			status=STATUS_PLAY_NORMAL;
+		);
 	 ) : (
 		  mainInit();
 	 );
@@ -403,10 +404,10 @@ proc_t = time_precise();
 gainDry += (_gainDry-gainDry)*.0001;
 gainSend += (_gainSend-gainSend)*.0001;
 
-xPlayLeft += (newmx-LROffset - xPlayLeft)*leftFriction;
-yPlayLeft += (newmy - yPlayLeft)*leftFriction;
-xPlayRight += (newmx+LROffset - xPlayRight)*rightFriction;
-yPlayRight += (newmy - yPlayRight)*rightFriction;
+xPlayLeft += (cursor.x-LROffset - xPlayLeft)*leftFriction;
+yPlayLeft += (cursor.y - yPlayLeft)*leftFriction;
+xPlayRight += (cursor.x+LROffset - xPlayRight)*rightFriction;
+yPlayRight += (cursor.y - yPlayRight)*rightFriction;
 
 left = spl0;
 right = spl1; 
@@ -433,7 +434,7 @@ enableSound ? (
 
 
 	outFFT = gainDry;
-	sendFFT = recording ? 0 : gainSend;
+	sendFFT = isRecordMode() ? 0 : gainSend;
 
 	interpolatedOutFFT += (outFFT-interpolatedOutFFT)*.001;
 	interpolatedSendFFT += (sendFFT-interpolatedSendFFT)*.001;
@@ -457,40 +458,32 @@ enableSound ? (
 	);
 
 	pvin.ready ? (
-	//thePhase = (thePhase+1)%FFTSIZE;
-	//thePhase==0? (
-		recording ? ( // rec
-			previewing ? (
-				snap = points[(curSelected>=0) ? curSelected : npoints-1];
-				fft_t = time_precise();
-				memcpy(drawSpecBufLeft,  snap[SNAP_M], HALF_FFTSIZE);
-				memcpy(drawSpecBufRight, snap[SNAP_M], HALF_FFTSIZE);
-				pvout1.pvout_do(snap[SNAP_M],  snap[SNAP_F]);
-				pvout2.pvout_do(snap[SNAP_M],  snap[SNAP_F]);
-				aaa.timeFFT += time_precise()-fft_t;
-			): ( 
-				savePV(pvin.magn, pvin.freq);
-				
-				memcpy(drawSpecBufLeft, pvin.magn, HALF_FFTSIZE);
-				memcpy(drawSpecBufRight, pvin.magn, HALF_FFTSIZE);
+		status == STATUS_RECORD_PREVIEW ? (
+			snap = points[(curSelected>=0) ? curSelected : npoints-1];
+			fft_t = time_precise();
+			memcpy(drawSpecBufLeft,  snap[SNAP_M], HALF_FFTSIZE);
+			memcpy(drawSpecBufRight, snap[SNAP_M], HALF_FFTSIZE);
+			pvout1.pvout_do(snap[SNAP_M],  snap[SNAP_F]);
+			pvout2.pvout_do(snap[SNAP_M],  snap[SNAP_F]);
+			aaa.timeFFT += time_precise()-fft_t;
+		);
+		status == STATUS_RECORD_NORMAL ? (
+			savePV(pvin.magn, pvin.freq);
+			
+			memcpy(drawSpecBufLeft, pvin.magn, HALF_FFTSIZE);
+			memcpy(drawSpecBufRight, pvin.magn, HALF_FFTSIZE);
 
-				fft_t = time_precise();
-				pvout1.pvout_do (pvin.magn, pvin.freq);
-				pvout2.pvout_do(pvin.magn, pvin.freq);
+			fft_t = time_precise();
+			pvout1.pvout_do (pvin.magn, pvin.freq);
+			pvout2.pvout_do(pvin.magn, pvin.freq);
 
-				// prova
-				//pvout1.pvout_do(lastInputSnap[SNAP_MLEFT], lastInputSnap[SNAP_FLEFT]);
-				//pvout2.pvout_do(lastInputSnap[SNAP_MRIGHT], lastInputSnap[SNAP_FRIGHT]);
-				aaa.timeFFT += time_precise()-fft_t;
+			aaa.timeFFT += time_precise()-fft_t;
 
-			);
-		) : ( // play
+		);
+		isPlayMode() ? ( // play
 			savePV(pvin.magn, pvin.freq);
 			interpolateSnaps();
 			
-			//npoints>0 ? interpolateSnapsTrivial() : interpolateSnaps();
-			//interpolateSnapsMinimal();
-
 			fft_t = time_precise();
 			pvout1.pvout_do (ml,  fl);
 			pvout2.pvout_do(mr,  fr);
@@ -533,7 +526,7 @@ gfx_t - lastScrollTime>.5 ? (
 
 nowKey= ui_key();
 nowKey!=0 ? lastKey = nowKey;
-!snapTuning && nowKey=='d' &&curSelected>=0 ? duplicateSnap(curSelected); 
+isPlayMode() && nowKey=='d' &&curSelected>=0 ? duplicateSnap(curSelected); 
 
 gfx_clear=-1;
 
@@ -549,8 +542,8 @@ gfx_t = time_precise()-gfx_t;
 aaa.timeGfx += gfx_t;
 aaa.gfxRatio = aaa.timeGfx/elapsed();
 
-slider1=newmx;
-slider2=newmy;
+slider1=cursor.x;
+slider2=cursor.y;
 
 slidersToParameters();
 

@@ -27,6 +27,32 @@ STR_POINT_INFO = 30;
 STR_POINT_NAMES = 100;
 STR_LOG = 200;
 
+STATUS_RECORD_NORMAL = 100;
+STATUS_RECORD_PREVIEW = 101;
+STATUS_PLAY_NORMAL = 200;
+STATUS_PLAY_MOVE_TARGET = 201;
+STATUS_PLAY_MOVE_SOURCE = 201;
+STATUS_EDIT_NORMAL = 300;
+
+function isPlayMode() (
+	status>=200 && status<=299;
+);
+
+
+function isRecordMode() (
+	status>=100 && status<=199;
+);
+
+
+function isEditMode() (
+	status>=300 && status<=399;
+);
+
+
+
+// initial status
+status = STATUS_RECORD_NORMAL;
+
 
 function todb(x) (
 	x<=0 ? -99999 : log(x)*8.685889638065035; 
@@ -46,22 +72,22 @@ function clip(x, minx, maxx) (
 // # norm 2 physic
 
 function normToPhisicX(x) (
-	graphLeft+graphWidth*x;
+	dragArea.left+dragArea.width*x;
 );
 
 
 function normToPhisicY(y) (
-	graphBottom-graphHeight*y;
+	dragArea.bottom-dragArea.height*y;
 );
 
 
 function phisicToNormX(x) (
-	(x-graphLeft)/graphWidth;
+	(x-dragArea.left)/dragArea.width;
 );
 
 
 function phisicToNormY(y) (
-	(graphBottom-y)/graphHeight;
+	(dragArea.bottom-y)/dragArea.height;
 );
 
 function mod(a,b) (

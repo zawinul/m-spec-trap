@@ -24,7 +24,7 @@ function drawHelp() local(x y i stepy) (
 	gfx_setfont(0);
 );
 
-function drawTuningInfo() local(i x y stepy) (
+function drawEditingInfo() local(i x y stepy) (
 	stepy = 16;
 
 	x = normToPhisicX(.5);
@@ -41,7 +41,7 @@ function showNodeWeight() local(i point x y w h wl wr stepy sxSpace) (
 	x = normToPhisicX(.75);
 	y = normToPhisicX(0)+5;
 	stepy = 18;
-	w = graphWidth/4-5;
+	w = dragArea.width/4-5;
 	h = 16;
 	sxSpace = 15;
 	i=0;
@@ -96,8 +96,9 @@ function drawInfo() local(i point x y stepy) (
 		i += 1;
 	);
 
-	snapTuning ? drawTuningInfo() : 
-		((!recording && enableShowBars)? showNodeWeight());
+	isEditMode() 
+		? drawEditingInfo() 
+		: (enableShowBars ? showNodeWeight());
 
 	gfx_setfont(0);
 );
@@ -106,8 +107,8 @@ function dragInit() (
 	curSelected>=0 && mouseIsInside ? (
 		dragging = 1;
 		curDragPoint = curSelected;
-		points[curDragPoint][SNAP_X] = normx; 
-		points[curDragPoint][SNAP_Y] = normy; 
+		points[curDragPoint][SNAP_X] = mouse.norm.x; 
+		points[curDragPoint][SNAP_Y] = mouse.norm.y; 
 	);
 );
 
@@ -115,72 +116,57 @@ function dragEnd() (
 	dragging = 0;
 );
 
-function tuningInit() (
-	!snapTuning  ? ( // new tuning
-		snapTuning = 1;
+function initEditing() (
+	isEditMode()   ? ( // new editing
 		curSelected<0 ? curSelected=0;
-		curTuningPoint = curSelected;
-	) : (	// change tuning point
-		curTuningPoint = curSelected;
+		curEditingPoint = curSelected;
+		status = STATUS_EDIT_NORMAL;
+	) : (	// change editing point
+		curEditingPoint = curSelected;
 	);
 );
 
-function tuningEnd() (
-	snapTuning ? (
-		snapTuning = 0;
- 		curTuningPoint = -1;
+function endEditing() (
+	isEditMode()  ? (
+		status = STATUS_PLAY_NORMAL;
+ 		curEditingPoint = -1;
 	)
 );
 
-function interpolateInit() (
-
-	!interpolating ? (
-		//...
-		interpolating = 1;
-	);
-);
-
-function interpolateEnd ()(
-	interpolating ? (
-		//...
-		interpolating = 0;
-	);
-);
 
 function previewInit()(
-	!previewing ? (
+	status != STATUS_RECORD_PREVIEW ? (
 		//restartPh();
-		previewing = 1;
 		getSnapRotate = 0;
 		oldGetSnapRotate = -1;
-		previewMouseX = normx;
+		previewMouseX = mouse.norm.x;
+		status = STATUS_RECORD_PREVIEW;
 	);
 );
 
 function previewEnd()(
-	previewing ? (
+	status == STATUS_RECORD_PREVIEW ? (
 		restartPh();
-		previewing = 0;
+		status = STATUS_RECORD_NORMAL;
 	);
 );
 
 
 function onClickOn(shft ctrl alt) (
-	recording ? (
-		shft+ctrl+alt==0 ? (	// left click when recording => capture
+	isRecordMode() && mouseIsInside ? (
+		shft+ctrl+alt==0 ? (	// left click when mode=record  => capture
 			captureSnap();
 			previewInit();
 		);
 		shft ? dragInit();
-	):( // play
-		shft+ctrl+alt==0 ? interpolateInit(); 
+	);
+	isPlayMode()  && mouseIsInside ?( // play
 		shft ? dragInit();
-		ctrl ? tuningInit();
+		ctrl ? initEditing();
 	);
 );
 
 function onClickOff() (
-	interpolateEnd();
 	previewEnd();
 	dragEnd();
 );
@@ -369,7 +355,9 @@ function ui_record_panel() (
 	ui_split_top(30);
 		ui_split_leftratio(.75);
 			ui_pad(0, 0, 3, 0);
-			control_button("PLAY", npoints>0) ? recording=0;
+			control_button("PLAY", npoints>0) ? (
+				status=STATUS_PLAY_NORMAL;
+			);
 		ui_pop();
 			control_button("ph=0") ? reinitPvObjects=1;
 	ui_pop();
@@ -420,7 +408,7 @@ function ui_play_panel() local(x,y) (
 			ui_pad(0,0,1,0);
 			control_button("REC") ? (
 				restartPh();
-				recording = 1;
+				status = STATUS_RECORD_NORMAL;
 				autoMoving = 0;
 				fftInDisabled = 0;
 			);
@@ -428,7 +416,7 @@ function ui_play_panel() local(x,y) (
 			control_button("ph=0") ? reinitPvObjects=1;
 		ui_pop();
 		ui_pad(1,0,0,0);
-		control_button("edit") ? tuningInit();
+		control_button("edit") ? initEditing();
 	ui_pop();
 
 	ui_selectOverlaps();
@@ -584,18 +572,18 @@ transpht = 0;
 transpcent = 0;
 
 
-function ui_fine_tuning_panel() local(point istate gain pan lo_cut hi_cut transp transpcent transpht)(
+function ui_edit_panel() local(point istate gain pan lo_cut hi_cut transp transpcent transpht)(
 
-	point = points[curTuningPoint];
+	point = points[curEditingPoint];
 
 	ui_split_top(40);
-		curTuningPoint = control_selector(
-			curTuningPoint, 
-			STR_POINT_NAMES+curTuningPoint, 
-			(curTuningPoint+npoints-1)%npoints,
-			(curTuningPoint+1)%npoints 
+		curEditingPoint = control_selector(
+			curEditingPoint, 
+			STR_POINT_NAMES+curEditingPoint, 
+			(curEditingPoint+npoints-1)%npoints,
+			(curEditingPoint+1)%npoints 
 		);
-		soloPoint>=0 ? soloPoint = curTuningPoint;
+		soloPoint>=0 ? soloPoint = curEditingPoint;
 	ui_pop();
 
 	ui_split_top(SLIDERH);
@@ -640,7 +628,7 @@ function ui_fine_tuning_panel() local(point istate gain pan lo_cut hi_cut transp
 
 	ui_split_top(20);
 		labelOnLeft("name");
-		istate = control_textinput(STR_POINT_NAMES+curTuningPoint, istate);
+		istate = control_textinput(STR_POINT_NAMES+curEditingPoint, istate);
 		istate = control_textinput_focus(istate);
 	ui_pop();
 
@@ -656,10 +644,10 @@ function ui_fine_tuning_panel() local(point istate gain pan lo_cut hi_cut transp
 			muteValue = twoStateButtonGetValue(muteState);
 			muteValue ? point[SNAP_FLAGS] |= IS_MUTE_FLAG : point[SNAP_FLAGS] &= 0xFFFF~IS_MUTE_FLAG;
 		ui_split_next();
-			soloValue = soloPoint == curTuningPoint;
+			soloValue = soloPoint == curEditingPoint;
 			soloState = twoStateButton(soloValue, "S", 2, soloState);
 			tmp = twoStateButtonGetValue(soloState);
-			!soloValue && tmp ? soloPoint = curTuningPoint;  
+			!soloValue && tmp ? soloPoint = curEditingPoint;  
 			soloValue && !tmp ? soloPoint = -1;  
 			soloValue = tmp;
 		ui_split_next();
@@ -681,13 +669,13 @@ function ui_fine_tuning_panel() local(point istate gain pan lo_cut hi_cut transp
 		ui_split_leftratio(1/2);
 			ui_pad(1,0);
 			control_button("duplicate", 1) ? (
-				curTuningPoint = duplicateSnap(curTuningPoint);
+				curEditingPoint = duplicateSnap(curEditingPoint);
 			);
 		ui_split_next();
 			ui_pad(1,0);
 			control_button("delete", 1) ? (
-				deleteSnap(curTuningPoint);
-				npoints==0 ? tuningEnd() : curTuningPoint=mod(curTuningPoint-1, npoints);
+				deleteSnap(curEditingPoint);
+				npoints==0 ? endEditing() : curEditingPoint=mod(curEditingPoint-1, npoints);
 			);
 		ui_pop();
 	ui_pop();
@@ -699,7 +687,7 @@ function ui_fine_tuning_panel() local(point istate gain pan lo_cut hi_cut transp
 	// ui_pop();
 
 	ui_split_bottom(35);
-		control_button("close") ? tuningEnd();
+		control_button("close") ? endEditing();
 	ui_pop();
 
 	ui_split_bottom(SLIDERH*2);
@@ -709,47 +697,53 @@ function ui_fine_tuning_panel() local(point istate gain pan lo_cut hi_cut transp
 
 );
 
-function setSliders() local(enab) (
-	snapTuning 	? ui_color(255, 255, 200, 1) : ui_color(220, 220, 220, 1);
+function uiControlPanel()  (
+	isEditMode()  	
+		? ui_color(255, 255, 200, 1) 
+		: ui_color(220, 220, 220, 1);
+
 	ui_fill();
 	ui_pad(8,8);
-
-	snapTuning ? (
-		ui_fine_tuning_panel();
-	) : (
-		recording ? ui_record_panel() : ui_play_panel();
-	);
+	isEditMode() 
+		? 	ui_edit_panel()
+		: 	(	isRecordMode()
+					? ui_record_panel()
+					: ui_play_panel();
+			);
+		
 	ui_pop();
 );
 
 function getMousePosition() local(snap) (
-	normx = ui_mouse_x()/ui_width();
-	normy = 1-(ui_mouse_y()/ui_height());
-	mouseIsInside = (normx>=0) && (normy>=0) && (normx<=1) && (normy<=1);
+	phMouse.x = ui_mouse_x();
+	phMouse.y = ui_mouse_y();
+	mouse.norm.x = (phMouse.x-dragArea.left)/dragArea.width;
+	mouse.norm.y = 1-(phMouse.y-dragArea.top)/dragArea.height;
+	mouseIsInside = (mouse.norm.x>=0) && (mouse.norm.y>=0) && (mouse.norm.x<=1) && (mouse.norm.y<=1);
 	
-	// newmx/newmy = position of last click (green cross)
-	newmx = slider1;
-	newmy = slider2;
+	// cursor.x/cursor.y = position of last click (green cross)
+	cursor.x = slider1;
+	cursor.y = slider2;
 	
 
 
 	mouseIsInside  ? (
-		mousex = normx;
-		mousey = normy;
-		interpolating || autoMoving ? (
-			newmx = normx;
-			newmy = normy;
+		mousex = mouse.norm.x;
+		mousey = mouse.norm.y;
+		autoMoving ? (
+			cursor.x = mouse.norm.x;
+			cursor.y = mouse.norm.y;
 		);
 	);
 
 	autoMoving ? (
-		newmx = autoXValue ? .5 + sin(autoMovePh)*.5*autoMoveRadius : .5;
-		newmy = autoYValue ? .5 + cos(autoMovePh)*.5*autoMoveRadius : .5;
+		cursor.x = autoXValue ? .5 + sin(autoMovePh)*.5*autoMoveRadius : .5;
+		cursor.y = autoYValue ? .5 + cos(autoMovePh)*.5*autoMoveRadius : .5;
 		mouseIsInside = 1;
 	);
 
-	previewing ? (
-		dx = previewMouseX-normx;
+	status == STATUS_RECORD_PREVIEW ? (
+		dx = previewMouseX-mouse.norm.x;
 		dx = max(0, min(dx, .5));
 		getSnapRotate = floor(dx*2*(SNAP_QUEUE_LENGTH-1));
 		oldGetSnapRotate!=getSnapRotate ? setInputData(points[npoints-1]);
@@ -770,10 +764,10 @@ function getMousePosition() local(snap) (
 	);
 );
 
-function drawCurSnap() local(str_w str_h fontSize) (
+function drawCurSnapLetter() local(str_w str_h fontSize) (
 	sprintf(STR_CUR_SNAP, pointLabel(curSelected));
 	
-	fontSize = min(graphWidth, graphHeight)*.7;
+	fontSize = min(dragArea.width, dragArea.height)*.7;
 	fontSize= min(255, fontSize); // altrimenti sembra ci sia un problema con la libreria
 	gfx_setfont(3,"arial", fontSize, 'b');
 	gfx_measurestr(STR_CUR_SNAP, str_w, str_h);
@@ -784,94 +778,101 @@ function drawCurSnap() local(str_w str_h fontSize) (
 	gfx_setfont(1);
 );
 
-function do_ui()(
-	npoints<0 ? recording=1;
-	ui_start("main");
-	ui_screen() == "main" ? (
-		//right
-		ui_split_right(180);
+function uiDragArea()  (
+	dragArea.left = ui_left();
+	dragArea.top = ui_top();
+	dragArea.width = ui_width();
+	dragArea.height = ui_height();
+	dragArea.right = ui_right();
+	dragArea.bottom = ui_bottom();
 
-		setSliders();
-		ui_pop();
+	isPlayMode() ? ui_color(0, 0, 64, 1);
+	isEditMode() ? ui_color(0, 0, 64, 1);
+	isRecordMode() ? (
+		status == STATUS_RECORD_NORMAL ? ui_color(64, 0, 0, 1);
+		status == STATUS_RECORD_PREVIEW ? ui_color(0, 0, 0, 1);
+	);
 
-		ui_push_clip();
-			!recording ? ui_color(0, 0, 64, 1);
-			recording && !previewing ? ui_color(64, 0, 0, 1);
-			previewing ? ui_color(0, 0, 0, 1);
+	ui_fill(); 
+	
+	getMousePosition();
 
-			ui_fill(); 
-			graphWidth = ui_width();
-			graphHeight = ui_height();
-			graphLeft = ui_left();
-			graphTop = ui_top();
-			graphRight = ui_right();
-			graphBottom = ui_bottom();
-			
-			getMousePosition();
+	previewing ? drawCurSnapLetter();
 
-			previewing ? drawCurSnap();
-			drawHelp();
-			drawInfo();
-			drawSnaps();
-			log.draw();
+	drawHelp();
+	drawInfo();
+	drawSnaps();
+	log.draw();
 
+	fftH=.5;
+	enableShowSpectrum ? (
+		viewSpectExpValue ? (
 			fftH=.5;
-			enableShowSpectrum ? (
-				viewSpectExpValue ? (
-					fftH=.5;
-					drawKbd(ui_left(), ui_bottom()-10, ui_width(), 10); 
-					ui_color(255, 128, 0, .25);
-					gfx_mode=1;
-					exp_drawFFT(drawSpecBufLeft, 
-						ui_left(), 
-						ui_top()+ui_height()*(1-fftH)-10, 
-						ui_width(), ui_height()*fftH);
+			drawKbd(ui_left(), ui_bottom()-10, ui_width(), 10); 
+			ui_color(255, 128, 0, .25);
+			gfx_mode=1;
+			exp_drawFFT(drawSpecBufLeft, 
+				ui_left(), 
+				ui_top()+ui_height()*(1-fftH)-10, 
+				ui_width(), ui_height()*fftH);
 
-					ui_color(0, 128, 255, .25);
-					exp_drawFFT(drawSpecBufRight, 
-						ui_left(), 
-						ui_top()+ui_height()*(1-fftH)-10, 
-						ui_width(), ui_height()*fftH);
+			ui_color(0, 128, 255, .25);
+			exp_drawFFT(drawSpecBufRight, 
+				ui_left(), 
+				ui_top()+ui_height()*(1-fftH)-10, 
+				ui_width(), ui_height()*fftH);
 
-					gfx_mode=0;
-				):(
-					fftH=.33;
-					ui_color(128,255,128,.35);
+			gfx_mode=0;
+		):(
+			fftH=.33;
+			ui_color(128,255,128,.35);
 
-					drawDbScale(
-						ui_left(), 
-						ui_top()+ui_height()*(1-fftH), 
-						ui_width(), 
-						ui_height()*fftH
-					);
-					ui_color(255, 128, 128, .15);
-					lin_drawFFT(drawSpecBufLeft, 
-						ui_left(), 
-						ui_top()+ui_height()*(1-fftH), 
-						ui_width()/2, 
-						ui_height()*fftH, 
-						1);
-
-					ui_color(128, 255, 128, .15);
-					lin_drawFFT(drawSpecBufRight, 
-						ui_left()+ui_width()/2, 
-						ui_top()+ui_height()*(1-fftH), 
-						ui_width()/2, 
-						ui_height()*fftH, 
-						0);
-				);
-
+			drawDbScale(
+				ui_left(), 
+				ui_top()+ui_height()*(1-fftH), 
+				ui_width(), 
+				ui_height()*fftH
 			);
+			ui_color(255, 128, 128, .15);
+			lin_drawFFT(drawSpecBufLeft, 
+				ui_left(), 
+				ui_top()+ui_height()*(1-fftH), 
+				ui_width()/2, 
+				ui_height()*fftH, 
+				1);
 
-
-		ui_pop();
+			ui_color(128, 255, 128, .15);
+			lin_drawFFT(drawSpecBufRight, 
+				ui_left()+ui_width()/2, 
+				ui_top()+ui_height()*(1-fftH), 
+				ui_width()/2, 
+				ui_height()*fftH, 
+				0);
+		);
 
 	);
 
+);
+
+function do_ui()(
+	npoints<=0 && isRecordMode() ? status=STATUS_RECORD_NORMAL;
+	ui_start("main");
+	ui_screen() == "main" ? (
+		ui_split_right(180);
+			uiControlPanel();
+		ui_pop();
+
+		ui_push_clip();
+			uiDragArea();
+		ui_pop();
+	);
+
+	// unused example
 	ui_screen() == "secondary" ? (
 		control_button("close screen") ? ui_screen_close();
 	);
 
+	// unused example
 	ui_screen() == "sys" ? ui_system();
 );
 

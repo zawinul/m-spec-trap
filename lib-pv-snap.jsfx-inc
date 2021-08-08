@@ -107,16 +107,16 @@ function setInputData(destSnap) local(t, srcSnap) (
 
 function captureSnap() local(ptr) (
 
-	curSelected<0 ?(
+	curHoveredPoint<0 ?(
 		ptr = initPVSnap(POINT_MEMORY+npoints*pvSnapSize());
 
 		points[npoints] = ptr;
 		curSelected = npoints;
 		npoints +=1;
-		ptr[SNAP_X] = normx;
-		ptr[SNAP_Y] = normy;
+		ptr[SNAP_X] = mouse.norm.x;
+		ptr[SNAP_Y] = mouse.norm.y;
 		//ptr[SNAP_LETTER] = 'A' + curSelected;
-		sprintf(STR_POINT_NAMES+curSelected, "spectre %c", ptr[SNAP_LETTER]);
+		sprintf(STR_POINT_NAMES+curSelected, "spectre %c", 'A' + curSelected);
 	) : (
 		ptr = points[curSelected];
 	);
@@ -323,18 +323,18 @@ function interpolateSnaps() local(i j m wLeft wRight mag g
 
 
 function getCurrentPoint() local(i dx dy d mind cur alpha enabled) (
-	!previewing  ? (
+	status != STATUS_RECORD_PREVIEW  ? (
 		mind=8;
-		curSelected = -1;
+		curSelected = curHoveredPoint = -1;
 		
 		i = 0;
 		loop(npoints, 
-			dx = (mousex-points[i][SNAP_X]) * graphWidth;
-			dy = (mousey-points[i][SNAP_Y]) * graphHeight;
+			dx = (mousex-points[i][SNAP_X]) * dragArea.width;
+			dy = (mousey-points[i][SNAP_Y]) * dragArea.height;
 			d = sqrt(dx*dx + dy*dy);
 			d<mind ? (
 				mind = d;
-				curSelected = i;
+				curSelected = curHoveredPoint = i;
 			);
 			i+=1;
 		);
@@ -416,7 +416,7 @@ function drawSnaps() local(i j x y k snap enabled) (
 			);
 		);
 		// blue ring around cur selected
-		snapTuning && i==curTuningPoint ? (
+		isEditMode() && i==curEditingPoint ? (
 			ui_color(0,0,255,1);
 			j=0;
 			loop(10, 
@@ -438,10 +438,10 @@ function drawSnaps() local(i j x y k snap enabled) (
 		i += 1;
 	);
 
-	!recording ? (
+	isRecordMode() ? (
 		ui_color(0, 255, 0, 1);
-		x = normToPhisicX(newmx);
-		y = normToPhisicY(newmy);
+		x = normToPhisicX(cursor.x);
+		y = normToPhisicY(cursor.y);
 
 		gfx_line(x-10, y-10, x+10, y+10);
 		gfx_line(x+10, y-10, x-10, y+10);
@@ -519,7 +519,7 @@ function lin_drawFFT(ptr, left, top, width, height, hswap) local(x y xinc i base
 	);
 
 	//show pivot
-	!recording ? (
+	!isRecordMode() ? (
 		ui_color(255,0,0,1);
 		x = hswap ? left+width-1 : left;
 		i=1;
