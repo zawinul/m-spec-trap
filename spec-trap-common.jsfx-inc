@@ -34,6 +34,11 @@ STATUS_PLAY_MOVE_TARGET = 201;
 STATUS_PLAY_MOVE_SOURCE = 201;
 STATUS_EDIT_NORMAL = 300;
 
+DRAGGED_OBJ_NONE = 0;
+DRAGGED_OBJ_LISTENER = 1;
+DRAGGED_OBJ_FIRSTSOURCE = 2;
+dragged.obj = DRAGGED_OBJ_LISTENER;
+ 
 function isPlayMode() (
 	status>=200 && status<=299;
 );
@@ -88,6 +93,14 @@ function phisicToNormX(x) (
 
 function phisicToNormY(y) (
 	(dragArea.bottom-y)/dragArea.height;
+);
+
+
+function mouseIsInside() (
+	mouse_x>=dragArea.left &&
+	mouse_x<=dragArea.right &&
+	mouse_y>=dragArea.top &&
+	mouse_y<=dragArea.bottom;
 );
 
 function mod(a,b) (

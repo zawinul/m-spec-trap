@@ -27,11 +27,11 @@ slider2: 0<0,1,.001>-y
 slider4: 0 <0,1,.001>-alpha weight 
 slider5: 0 <24,24,.01>-transp
 slider6: 0 <0,1,.001>-movement delay
+slider7: 0 <-1,1,.0001> pitch shift
 
 slider8:1<0,1,.001>-dry out
 slider9:0<0,1,.001>-send effect
 slider10:0<0,1,.001>-automove speed
-slider11:0<0,3,1>-automove X Y enable
 
 slider12:.5<0,1,.001>-enh center
 slider13:0<-1,1,.001>-enh alpha up
@@ -112,8 +112,6 @@ function mainInit() (
 	pvObjectInit();
 
 
-	xPlayLeft = yPlayRight = cursor.x = cursor.y = 0;
-
 	outFFT = 0;
 	sendFFT = 0;
 
@@ -142,6 +140,7 @@ function slidersToParameters() local (i)(
 	globalTransposeHt = slider5;
 	globalTranspose = pow(2,globalTransposeHt/12);
 
+	globalPitchShift = slider7>=0 ? pow(slider7, 3)*1000 : -pow(-slider7, 3)*1000;
 	alpha1 = slider21;
 	alpha2 = slider22;
 	alpha3 = slider23;
@@ -151,7 +150,7 @@ function slidersToParameters() local (i)(
 	walpha = pow(10, slider4);
 	ftime = 0.01 * pow(1000, slider6); // seconds
 	fsamples = ftime * srate;
-	leftFriction = rightFriction = 1-pow(0.5, 1/fsamples);
+	friction = 1-pow(0.5, 1/fsamples);
 	 
 	fftShowBase = -120 +  slider21*120;
 	fftShowTop = -120 +  slider20*120;
@@ -163,13 +162,12 @@ function slidersToParameters() local (i)(
 	 _gainDry = slider8==0 ? 0 : fromdb(dbDry);
 	 _gainSend = slider9==0 ? 0 : fromdb(dbSend);
 
-	 !isRecordMode() && (autoXValue || autoYValue) ?(
-		  autoMoving = 1;
+	 !isRecordMode() ? (
 		  autoMoveSpeed = (1/60)*pow(60*10, slider10); //RoundsPerSecond
 		  autoMoveRadius = pow(slider18,3);
 		  autoMoveInc = 2*$pi*autoMoveSpeed / srate;
 	 ): (
-		  autoMoving = 0;
+		  autoMoveSpeed = autoMoveRadius = autoMoveInc = 0;
 	 );
 
 	 LROffset = slider14*slider14*slider14*.5;
@@ -179,9 +177,6 @@ function slidersToParameters() local (i)(
 	enhAlphaUp = slider17>0 ? pow(4,slider17):pow(30,slider17); 
 	enhCenterBend = slider16; 
 
-	autoYValue = slider11&2 ? 1 : 0; 
-	autoXValue = slider11&1 ? 1 : 0; 
-	
 	setEnhPivot();
 );
 
@@ -213,7 +208,7 @@ function setHelp() local(i label)(
 		nHelpStr = 1;
 	);
 
-	status == STATUS_RECORD_NORMAL && mouseIsInside ? (
+	status == STATUS_RECORD_NORMAL && mouseIsInside() ? (
 		curSelected<0 ? (
 			sprintf(STR_HELP1, "click to capture a spectre");
 			nHelpStr = 1;
@@ -336,7 +331,7 @@ a01_points0y = points[0][SNAP_Y];
 CRASHERROR=npoints>0 && (points[0][SNAP_X]<0 || points[0][SNAP_X] >1 || points[0][SNAP_Y]<0 || points[0][SNAP_Y] >1);
 
 slidersToParameters();
-getMousePosition(); // aggiorna cursor.x cursor.y
+getMousePosition(); // aggiorna cursor_x cursor_y
 
 
 
@@ -392,8 +387,14 @@ enableSound = 1;
 @sample
 //------------------------------------------------------------------------------------
 
-// debug monitoring
-a00_status= gmem[GMEM_CONTROL_STATUS];
+// fcursor_x += (cursor_x-fcursor_x)*friction;
+// fcursor_y += (cursor_y-fcursor_y)*friction;
+_tempfcx = fcursor_x;
+fcursor_x = cursor_x;
+fcursor_y = cursor_y;
+
+a00int_fcursorx += abs(fcursor_x-_tempfcx);
+
 
 reinitPvObjects? (
 	pvObjectInit();
@@ -404,10 +405,27 @@ proc_t = time_precise();
 gainDry += (_gainDry-gainDry)*.0001;
 gainSend += (_gainSend-gainSend)*.0001;
 
-xPlayLeft += (cursor.x-LROffset - xPlayLeft)*leftFriction;
-yPlayLeft += (cursor.y - yPlayLeft)*leftFriction;
-xPlayRight += (cursor.x+LROffset - xPlayRight)*rightFriction;
-yPlayRight += (cursor.y - yPlayRight)*rightFriction;
+listenerDragging = dragged.obj == DRAGGED_OBJ_LISTENER && mouse_cap==1 && mouseIsInside();
+
+listenerDragging ? (
+	listener.center.x = fcursor_x;
+	listener.center.y = fcursor_y;
+);
+
+listener.x = listener.center.x + sin(autoMovePh)*.5*autoMoveRadius;
+listener.y = listener.center.y + cos(autoMovePh)*.5*autoMoveRadius;
+
+xPlayLeft = listener.x-LROffset;
+xPlayRight = listener.x+LROffset;
+yPLayLeft = yPLayRight = listener.y;
+
+
+// listenerDragging ? (
+// 	xPlayLeft  = fcursor_x - LROffset;
+// 	yPlayLeft  = fcursor_y;
+// 	xPlayRight = fcursor_x + LROffset;
+// 	yPlayRight = fcursor_y;
+// );
 
 left = spl0;
 right = spl1; 
@@ -418,10 +436,8 @@ right = spl1;
 // provaSinusoidePh>2*$pi ? provaSinusoidePh-=2*$pi;
 // left = right = sin(provaSinusoidePh);
 
-autoMoving ? (
-	 autoMovePh += autoMoveInc;
-	 autoMovePh>2*$pi ? autoMovePh-=2*$pi;
-);
+autoMovePh += autoMoveInc;
+//autoMovePh>2*$pi ? autoMovePh -= 2*$pi;
 
 
 enableSound ? (
@@ -542,13 +558,13 @@ gfx_t = time_precise()-gfx_t;
 aaa.timeGfx += gfx_t;
 aaa.gfxRatio = aaa.timeGfx/elapsed();
 
-slider1=cursor.x;
-slider2=cursor.y;
+// slider1=cursor_x;
+// slider2=cursor_y;
 
 slidersToParameters();
 
-slider_automate(slider1);
-slider_automate(slider2);
+// slider_automate(slider1);
+// slider_automate(slider2);
 
 m  = FFTSIZE/srate;
 

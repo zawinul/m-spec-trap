@@ -4,7 +4,7 @@
 @init
 //-------------------------------
 
-SLIDERH = 20;
+SLIDERH = 15;
 
 
 function drawHelp() local(x y i stepy) (
@@ -104,11 +104,11 @@ function drawInfo() local(i point x y stepy) (
 );
 
 function dragInit() (
-	curSelected>=0 && mouseIsInside ? (
+	curSelected>=0 && mouseIsInside() ? (
 		dragging = 1;
 		curDragPoint = curSelected;
-		points[curDragPoint][SNAP_X] = mouse.norm.x; 
-		points[curDragPoint][SNAP_Y] = mouse.norm.y; 
+		points[curDragPoint][SNAP_X] = mouse_norm_x; 
+		points[curDragPoint][SNAP_Y] = mouse_norm_y; 
 	);
 );
 
@@ -139,7 +139,7 @@ function previewInit()(
 		//restartPh();
 		getSnapRotate = 0;
 		oldGetSnapRotate = -1;
-		previewMouseX = mouse.norm.x;
+		previewMouseX = mouse_norm_x;
 		status = STATUS_RECORD_PREVIEW;
 	);
 );
@@ -153,14 +153,14 @@ function previewEnd()(
 
 
 function onClickOn(shft ctrl alt) (
-	isRecordMode() && mouseIsInside ? (
+	isRecordMode() && mouseIsInside() ? (
 		shft+ctrl+alt==0 ? (	// left click when mode=record  => capture
 			captureSnap();
 			previewInit();
 		);
 		shft ? dragInit();
 	);
-	isPlayMode()  && mouseIsInside ?( // play
+	isPlayMode()  && mouseIsInside() ?( // play
 		shft ? dragInit();
 		ctrl ? initEditing();
 	);
@@ -173,8 +173,8 @@ function onClickOff() (
 
 
 function mousecapChange(val, oldVal) (
-	mouseLeft = mouseIsInside && ((val & 1)==1);
-	oldMouseLeft = mouseIsInside && ((oldVal & 1)==1);
+	mouseLeft = mouseIsInside() && ((val & 1)==1);
+	oldMouseLeft = mouseIsInside() && ((oldVal & 1)==1);
 
 	mouseLeft && ! oldMouseLeft ? (
 		onClickOn(val & 8, val & 4, val & 16); // shift, control, alt
@@ -196,7 +196,7 @@ function labelOnLeft(label) (
 );
 
 function setSlider(val minVal maxVal defVal label)(
-	ui_pad(0, 3, 0, 0);
+	ui_pad(0, 0, 0, 0);
 	labelOnLeft(label);
 	val = control_slider_x(val, minVal, maxVal, defVal);
 	val;
@@ -409,7 +409,6 @@ function ui_play_panel() local(x,y) (
 			control_button("REC") ? (
 				restartPh();
 				status = STATUS_RECORD_NORMAL;
-				autoMoving = 0;
 				fftInDisabled = 0;
 			);
 		ui_split_next();
@@ -440,28 +439,12 @@ function ui_play_panel() local(x,y) (
 	ui_pop();
 
 	ui_split_top(SLIDERH);
-		ui_pad(0, 3, 0, 0);
-		labelOnLeft("autoMv R");
-		ui_split_right(16);
-			ui_pad(1,0,1,0);
-			autoYState = twoStateButton(autoYValue,"Y",1, autoYState);
-			autoYValue = twoStateButtonGetValue(autoYState);
-			
-			ui_split_next();
-			ui_pad(1,0,1,0);
-			autoXState = twoStateButton(autoXValue,"X",1, autoXState);
-			autoXValue = twoStateButtonGetValue(autoXState);
-
-			slider11 = (autoYValue ? 2 : 0) + (autoXValue ? 1 : 0);
-		ui_pop();
-		slider18 = control_slider_x(slider18, 0, 1, 0);
+		slider18 = setSlider(slider18, 0, 1, 0, "autoMv R");
 	ui_pop();
 
 
 	ui_split_top(SLIDERH);
-		ui_pad(0, 3, 0, 0);
-		labelOnLeft("autoMv V");
-		slider10 = control_slider_x(slider10, 0, 1, 0);
+		slider10 = setSlider(slider10, 0, 1, 0, "autoMv V");
 	ui_pop();
 
 	ui_split_top(SLIDERH);
@@ -715,35 +698,33 @@ function uiControlPanel()  (
 );
 
 function getMousePosition() local(snap) (
-	phMouse.x = ui_mouse_x();
-	phMouse.y = ui_mouse_y();
-	mouse.norm.x = (phMouse.x-dragArea.left)/dragArea.width;
-	mouse.norm.y = 1-(phMouse.y-dragArea.top)/dragArea.height;
-	mouseIsInside = (mouse.norm.x>=0) && (mouse.norm.y>=0) && (mouse.norm.x<=1) && (mouse.norm.y<=1);
 	
-	// cursor.x/cursor.y = position of last click (green cross)
-	cursor.x = slider1;
-	cursor.y = slider2;
+	phMouse.x = mouse_x;
+	phMouse.y = mouse_y;
+	mouse_norm_x = phisicToNormX(phMouse.x);
+	mouse_norm_y = phisicToNormY(phMouse.y);
+	//mouseIsInside = (mouse_norm_x>=0) && (mouse_norm_y>=0) && (mouse_norm_x<=1) && (mouse_norm_y<=1);
 	
-
-
-	mouseIsInside  ? (
-		mousex = mouse.norm.x;
-		mousey = mouse.norm.y;
-		autoMoving ? (
-			cursor.x = mouse.norm.x;
-			cursor.y = mouse.norm.y;
-		);
+	mouse_cap!=oldMousecap ? (
+		mousecapChange(mouse_cap, oldMousecap);
+		oldMousecap = mouse_cap;
 	);
 
-	autoMoving ? (
-		cursor.x = autoXValue ? .5 + sin(autoMovePh)*.5*autoMoveRadius : .5;
-		cursor.y = autoYValue ? .5 + cos(autoMovePh)*.5*autoMoveRadius : .5;
-		mouseIsInside = 1;
+	// cursor_x = slider1;
+	// cursor_y = slider2;
+
+
+	mouseIsInside() && mouse_cap==1 && status==STATUS_PLAY_NORMAL ? (
+		_tempcx = cursor_x;
+		cursor_x = mouse_norm_x;	
+		cursor_y = mouse_norm_y;	
+
+		a00int_cursorx += abs(cursor_x-_tempcx);
 	);
+
 
 	status == STATUS_RECORD_PREVIEW ? (
-		dx = previewMouseX-mouse.norm.x;
+		dx = previewMouseX-mouse_norm_x;
 		dx = max(0, min(dx, .5));
 		getSnapRotate = floor(dx*2*(SNAP_QUEUE_LENGTH-1));
 		oldGetSnapRotate!=getSnapRotate ? setInputData(points[npoints-1]);
@@ -759,8 +740,8 @@ function getMousePosition() local(snap) (
 
 	dragging ? ( 
 		snap = points[curDragPoint];
-		snap[SNAP_X] = mousex;
-		snap[SNAP_Y] = mousey;
+		snap[SNAP_X] = mouse_norm_x;
+		snap[SNAP_Y] = mouse_norm_y;
 	);
 );
 
@@ -786,7 +767,9 @@ function uiDragArea()  (
 	dragArea.right = ui_right();
 	dragArea.bottom = ui_bottom();
 
-	isPlayMode() ? ui_color(0, 0, 64, 1);
+	isPlayMode() ? (
+		mouseIsInside() ? ui_color(0, 0, 64, 1) :   ui_color(0, 0, 0, 1);
+	);
 	isEditMode() ? ui_color(0, 0, 64, 1);
 	isRecordMode() ? (
 		status == STATUS_RECORD_NORMAL ? ui_color(64, 0, 0, 1);
@@ -797,7 +780,7 @@ function uiDragArea()  (
 	
 	getMousePosition();
 
-	previewing ? drawCurSnapLetter();
+	status==STATUS_RECORD_PREVIEW ? drawCurSnapLetter();
 
 	drawHelp();
 	drawInfo();

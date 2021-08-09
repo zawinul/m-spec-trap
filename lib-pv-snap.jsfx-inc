@@ -113,8 +113,8 @@ function captureSnap() local(ptr) (
 		points[npoints] = ptr;
 		curSelected = npoints;
 		npoints +=1;
-		ptr[SNAP_X] = mouse.norm.x;
-		ptr[SNAP_Y] = mouse.norm.y;
+		ptr[SNAP_X] = mouse_norm_x;
+		ptr[SNAP_Y] = mouse_norm_y;
 		//ptr[SNAP_LETTER] = 'A' + curSelected;
 		sprintf(STR_POINT_NAMES+curSelected, "spectre %c", 'A' + curSelected);
 	) : (
@@ -218,7 +218,7 @@ function interpolateSnaps() local(i j m wLeft wRight mag g
 
 		i=0; 
 		loop(HALF_FFTSIZE,
-			freq = f[i]*transp*globalTranspose;
+			freq = f[i]*transp*globalTranspose+globalPitchShift;
 			band = floor(i*transp*globalTranspose+.5);
 
 			band>=0 && band<HALF_FFTSIZE ? (
@@ -329,8 +329,8 @@ function getCurrentPoint() local(i dx dy d mind cur alpha enabled) (
 		
 		i = 0;
 		loop(npoints, 
-			dx = (mousex-points[i][SNAP_X]) * dragArea.width;
-			dy = (mousey-points[i][SNAP_Y]) * dragArea.height;
+			dx = (mouse_norm_x-points[i][SNAP_X]) * dragArea.width;
+			dy = (mouse_norm_y-points[i][SNAP_Y]) * dragArea.height;
 			d = sqrt(dx*dx + dy*dy);
 			d<mind ? (
 				mind = d;
@@ -376,16 +376,19 @@ function drawCircles() local(i j snap x y w n alpha)(
 	);
 );
 
-function drawAutoMovingPath() local(p x y) (
+function drawAutoMovingPath() local(p x y inc) (
 	ui_color(255, 255, 255, .33);
 
 	p=0;
+	inc = 2*$pi/floor(5+autoMoveRadius*300);
 	while(
-		x = normToPhisicX(autoXValue ? .5 + sin(p)*.5*autoMoveRadius : .5);
-		y = normToPhisicY(autoYValue ? .5 + cos(p)*.5*autoMoveRadius : .5);
-		gfx_line(x,y,x,y); 
+		dragged.obj == DRAGGED_OBJ_LISTENER ? (
+			x = normToPhisicX(listener.center.x + sin(p)*.5*autoMoveRadius);
+			y = normToPhisicY(listener.center.y + cos(p)*.5*autoMoveRadius);
 
-		p+=.05;
+			gfx_line(x,y,x,y); 
+		);
+		p+= inc;
 		p<2*$pi;
 	);
 );
@@ -438,11 +441,10 @@ function drawSnaps() local(i j x y k snap enabled) (
 		i += 1;
 	);
 
-	isRecordMode() ? (
+	!isRecordMode() ? (
 		ui_color(0, 255, 0, 1);
-		x = normToPhisicX(cursor.x);
-		y = normToPhisicY(cursor.y);
-
+		x = normToPhisicX(listener.center.x);
+		y = normToPhisicY(listener.center.y);
 		gfx_line(x-10, y-10, x+10, y+10);
 		gfx_line(x+10, y-10, x-10, y+10);
 		
@@ -462,7 +464,7 @@ function drawSnaps() local(i j x y k snap enabled) (
 
 		enableShowCircles ? drawCircles();
 
-		autoMoving ? drawAutoMovingPath();
+		drawAutoMovingPath();
 	);
 );
 
