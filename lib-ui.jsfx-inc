@@ -117,7 +117,8 @@ function dragEnd() (
 );
 
 function initEditing() (
-	isEditMode()   ? ( // new editing
+	!isEditMode()   ? ( // new editing
+		//a00_mode_edit += 1;
 		curSelected<0 ? curSelected=0;
 		curEditingPoint = curSelected;
 		status = STATUS_EDIT_NORMAL;
@@ -160,7 +161,7 @@ function onClickOn(shft ctrl alt) (
 		);
 		shft ? dragInit();
 	);
-	isPlayMode()  && mouseIsInside() ?( // play
+	(isPlayMode() || isEditMode())  && mouseIsInside() ?( // play
 		shft ? dragInit();
 		ctrl ? initEditing();
 	);
@@ -439,30 +440,30 @@ function ui_play_panel() local(x,y) (
 	ui_pop();
 
 	ui_split_top(SLIDERH);
-		slider18 = setSlider(slider18, 0, 1, 0, "autoMv R");
+		slider18 = setSlider(slider18, 0, 1, 0, "LFO R");
 	ui_pop();
 
 
 	ui_split_top(SLIDERH);
-		slider10 = setSlider(slider10, 0, 1, 0, "autoMv V");
+		slider10 = setSlider(slider10, 0, 1, 0, "LFO V");
 	ui_pop();
 
 	ui_split_top(SLIDERH);
-		slider14 = setSlider(slider14, 0, 1, 0, "LR offs");
+		slider14 = setSlider(slider14, 0, 1, 0, "stereo");
 	ui_pop();
 
 
 	ui_split_top(SLIDERH);
-		slider12 = setSlider(slider12, 0, 1, .5, "enh center");
+		slider12 = setSlider(slider12, 0, 1, .5, "e ctr");
 	ui_pop();
 	ui_split_top(SLIDERH);
-		slider16 = setSlider(slider16, 0, 1, 0, "enh ctr bend");
+		slider16 = setSlider(slider16, 0, 1, 0, "e c bend");
 	ui_pop();
 	ui_split_top(SLIDERH);
-		slider17 = setSlider(slider17, -1, 1, 0, "enh α ▲");
+		slider17 = setSlider(slider17, -1, 1, 0, "e α+ ▲");
 	ui_pop();
 	ui_split_top(SLIDERH);
-		slider13 = setSlider(slider13, -1, 1, 0, "enh α ▼");
+		slider13 = setSlider(slider13, -1, 1, 0, "e α- ▼");
 	ui_pop();
 
 	ui_split_top(SLIDERH);
@@ -605,6 +606,15 @@ function ui_edit_panel() local(point istate gain pan lo_cut hi_cut transp transp
 	ui_pop();
 	
 	point[SNAP_TRANSP] = transpht+transpcent/100;
+
+	ui_split_top(SLIDERH);
+		point[SNAP_MOVEMENT_V] = setSlider(point[SNAP_MOVEMENT_V], 0, 1, 0, "lfo V");
+	ui_pop();
+
+
+	ui_split_top(SLIDERH);
+		point[SNAP_MOVEMENT_R] = setSlider(point[SNAP_MOVEMENT_R], 0, 1, 0, "lfo R");
+	ui_pop();
 
 	ui_split_top(12); 
 	ui_pop();

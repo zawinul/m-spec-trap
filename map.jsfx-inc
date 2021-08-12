@@ -32,6 +32,9 @@ ml						= 3130000; // size  HALF_FFTSIZE, max 8k
 fl						= 3140000; // size  HALF_FFTSIZE, max 8k
 mr						= 3150000; // size  HALF_FFTSIZE, max 8k
 fr						= 3160000; // size  HALF_FFTSIZE, max 8k
+mnorm					= 3170000; // size  HALF_FFTSIZE, max 8k
+fnorm					= 3180000; // size  HALF_FFTSIZE, max 8k
+fnormtot				= 3190000; // size  HALF_FFTSIZE, max 8k
 
 SERIALIZE_AREA			= 4000000; 
 GMEM_CONTROL_STATUS     = SERIALIZE_AREA-1;

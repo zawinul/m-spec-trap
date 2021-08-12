@@ -33,6 +33,8 @@ slider8:1<0,1,.001>-dry out
 slider9:0<0,1,.001>-send effect
 slider10:0<0,1,.001>-automove speed
 
+slider11:0<-1,1,.001>band shift
+
 slider12:.5<0,1,.001>-enh center
 slider13:0<-1,1,.001>-enh alpha up
 slider14:0<0,1,.001>-LR offs
@@ -44,6 +46,7 @@ slider18:0<0,1,.001>-automove radium
 slider20: 1 <0,1,.001>-fft show top
 slider21: .5 <0,1,.001>-fft show base
 
+slider22: -1 <-1,1,.1> temp norm
 
 options:want_all_kb
 
@@ -387,13 +390,8 @@ enableSound = 1;
 @sample
 //------------------------------------------------------------------------------------
 
-// fcursor_x += (cursor_x-fcursor_x)*friction;
-// fcursor_y += (cursor_y-fcursor_y)*friction;
-_tempfcx = fcursor_x;
-fcursor_x = cursor_x;
-fcursor_y = cursor_y;
-
-a00int_fcursorx += abs(fcursor_x-_tempfcx);
+fcursor_x += (cursor_x-fcursor_x)*friction;
+fcursor_y += (cursor_y-fcursor_y)*friction;
 
 
 reinitPvObjects? (
@@ -449,6 +447,7 @@ enableSound ? (
 	pvOutRight = pvout2.pvout_get_output(pvin.count);
 
 
+
 	outFFT = gainDry;
 	sendFFT = isRecordMode() ? 0 : gainSend;
 
@@ -474,6 +473,21 @@ enableSound ? (
 	);
 
 	pvin.ready ? (
+
+		// prova
+		__dmin=0; 
+		__dmax=0;
+		__i=1;
+		loop(HALF_FFTSIZE-1,
+			__f = pvin.freq[__i]*FFTSIZE/srate;
+			__delta = __f - __i;
+			__delta>__dmax ? __dmax=__delta;
+			__delta<__dmin ? __dmin=__delta;
+			__i+=1
+		);
+
+
+
 		status == STATUS_RECORD_PREVIEW ? (
 			snap = points[(curSelected>=0) ? curSelected : npoints-1];
 			fft_t = time_precise();
@@ -496,7 +510,7 @@ enableSound ? (
 			aaa.timeFFT += time_precise()-fft_t;
 
 		);
-		isPlayMode() ? ( // play
+		isPlayMode() || isEditMode() ? ( // play
 			savePV(pvin.magn, pvin.freq);
 			interpolateSnaps();
 			
@@ -512,6 +526,7 @@ enableSound ? (
 	spl2 = clip(spl2, -MAX_CLIP, MAX_CLIP);
 	spl3 = clip(spl3, -MAX_CLIP, MAX_CLIP);
 
+	incPointLfoPh();
 ) : (
 	spl0 = spl1 = spl2 = spl3 = 0;
 );

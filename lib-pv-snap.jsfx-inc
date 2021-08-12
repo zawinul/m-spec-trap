@@ -26,7 +26,10 @@ SNAP_TRANSP = 10;
 SNAP_LO_CUT = 11;
 SNAP_HI_CUT = 12;
 SNAP_BOTTOM_CUT = 13;
-//SNAP_LETTER = 14;
+SNAP_MOVEMENT_V = 14;
+SNAP_MOVEMENT_R = 15;
+
+SNAP_LFO_PH	= 16;
 
 SNAP_LEFT_WEIGHT = 30;
 SNAP_RIGHT_WEIGHT = 31;
@@ -125,7 +128,18 @@ function captureSnap() local(ptr) (
 	setDataChanged();
 );
 
-function computeWeigths() local(i wLeft wRight d dx dy pxLeft pyLeft pxRight pyRight point)(
+
+function getPointX(p) (
+	p[SNAP_X] + sin(p[SNAP_LFO_PH])*pow(p[SNAP_MOVEMENT_R],4);
+);
+
+
+function getPointY(p) (
+	p[SNAP_Y] + cos(p[SNAP_LFO_PH])*pow(p[SNAP_MOVEMENT_R],4);
+);
+
+
+function computeWeigths() local(i wLeft wRight d dx dy px py pxLeft pyLeft pxRight pyRight point)(
 	i=0;
 
 	pxLeft = xPlayLeft;
@@ -137,9 +151,11 @@ function computeWeigths() local(i wLeft wRight d dx dy pxLeft pyLeft pxRight pyR
 		point = points[i];
 		enabled = (point[SNAP_FLAGS] & IS_MUTE_FLAG) == 0;
 		enabled = enabled && (soloPoint<0 || soloPoint==i);
-
-		dx = point[SNAP_X]-pxLeft;
-		dy = point[SNAP_Y]-pyLeft;
+		px = getPointX(point);
+		py = getPointY(point);
+		
+		dx = px-pxLeft;
+		dy = py-pyLeft;
 		d = sqrt(dx*dx+dy*dy);
 		enabled 
 			? wLeft = ((d==0) ? 9999 : pow(1/d, walpha))
@@ -147,8 +163,8 @@ function computeWeigths() local(i wLeft wRight d dx dy pxLeft pyLeft pxRight pyR
 		points[i][SNAP_LEFT_WEIGHT] = wLeft;
 		totalWeightLeft += wLeft;
 
-		dx = point[SNAP_X]-pxRight;
-		dy = point[SNAP_Y]-pyRight;
+		dx = px-pxRight;
+		dy = py-pyRight;
 		d = sqrt(dx*dx+dy*dy);
 		enabled 
 			? wRight = ((d==0) ? 9999 : pow(1/d, walpha))
@@ -171,6 +187,78 @@ function setEnhPivot() local(i enhPivotBase) (
 		i+=1;
 	);
 );
+
+function bandshiftpv(m,f) local(i freq nband) (
+	memset(mnorm, 0, HALF_FFTSIZE);
+	memset(fnorm, 0, HALF_FFTSIZE);
+
+	nband = slider11>=0 ? pow(slider11,5) : -pow(-slider11,5);
+	nband = floor(HALF_FFTSIZE * nband);
+	nband>=0 ? (
+		memcpy(mnorm+nband, m, HALF_FFTSIZE-nband);
+		memcpy(fnorm+nband, f, HALF_FFTSIZE-nband);
+	) : (
+		memcpy(mnorm, m-nband, HALF_FFTSIZE+nband);
+		memcpy(fnorm, f-nband, HALF_FFTSIZE+nband);
+	);
+
+	memcpy(m, mnorm, HALF_FFTSIZE);
+	memcpy(f, fnorm, HALF_FFTSIZE);
+);
+
+function normalizepv(m,f) local(i freq nfreq b bmin bmax band) (
+	bmin = -OVERLAPS/2;
+	bmax = OVERLAPS/2;
+	memset(mnorm, 0, HALF_FFTSIZE);
+	memset(fnorm, 0, HALF_FFTSIZE);
+	//memset(fnormtot, 0, HALF_FFTSIZE);
+
+	a00_norm_c1 = a00_norm_c2 = a00_norm_c3 = 0;
+	i=1;
+	loop(HALF_FFTSIZE-1,
+		nfreq = (f[i]+globalPitchShift)*FFTSIZE/srate;
+		b = bmin;
+		allocated = 0;
+		//try to allocate in a free band
+		a000_nnn = bmax-bmin+1;
+
+		loop(bmax-bmin+1,
+			band = floor(nfreq+.5) +b;
+			band>=1 && band <HALF_FFTSIZE && allocated==0 && mnorm[band]==0 ? (
+				allocated = 1;
+				a00_norm_c1 +=1;
+				mnorm[band] = m[i];
+				fnorm[band] = f[i];
+			);
+			b += 1
+		);
+		allocated==0? ( // no free band found, look for a band with low magnitude
+			b = bmin;
+			loop(bmax-bmin+1,
+				band = floor(nfreq+.5) +b;
+				band>=1 && band <HALF_FFTSIZE  && allocated==0 && mnorm[band]<m[i] ? (
+						// my magn is higher than this, i take the band
+					allocated = 1;
+					a00_norm_c2 +=1;
+					mnorm[band] = m[i];
+					fnorm[band] = f[i];
+				);
+				b+=1
+			);
+		);
+		allocated==0 ? (
+			// not found a good band to place our freq
+			a00_norm_c3 +=1;
+			// we do nothing
+		);
+		i+=1;
+	);
+
+	memcpy(m, mnorm, HALF_FFTSIZE);
+	memcpy(f, fnorm, HALF_FFTSIZE);
+);
+
+
 
 function interpolateSnaps() local(i j m wLeft wRight mag g 
 	gainLeft gainRight pan polarity m transp mw g m point isInput m f a ga gb gc
@@ -218,7 +306,7 @@ function interpolateSnaps() local(i j m wLeft wRight mag g
 
 		i=0; 
 		loop(HALF_FFTSIZE,
-			freq = f[i]*transp*globalTranspose+globalPitchShift;
+			freq = f[i]*transp*globalTranspose /*+globalPitchShift*/;
 			band = floor(i*transp*globalTranspose+.5);
 
 			band>=0 && band<HALF_FFTSIZE ? (
@@ -317,6 +405,14 @@ function interpolateSnaps() local(i j m wLeft wRight mag g
 		);
 	);
 
+	slider22>0? (
+		normalizepv(ml, fl);
+		normalizepv(mr, fr);
+	);
+
+	bandshiftpv(ml,fl);
+	bandshiftpv(mr,fr);
+
 	memcpy(drawSpecBufLeft,  ml, HALF_FFTSIZE);
 	memcpy(drawSpecBufRight, mr, HALF_FFTSIZE);
 );
@@ -340,6 +436,16 @@ function getCurrentPoint() local(i dx dy d mind cur alpha enabled) (
 		);
 	);
 	curSelected;
+);
+
+function incPointLfoPh() local (i p) (
+	i=0;
+	loop(npoints,
+		p = points[i];
+		p[SNAP_LFO_PH] += pow(p[SNAP_MOVEMENT_V], 4)*.01;
+		p[SNAP_LFO_PH] > $pi ? p[SNAP_LFO_PH]-=2*$pi;
+		i+=1
+	);
 );
 
 function drawCircles() local(i j snap x y w n alpha)(
@@ -393,20 +499,21 @@ function drawAutoMovingPath() local(p x y inc) (
 	);
 );
 
-function drawSnaps() local(i j x y k snap enabled) (
+function drawSnaps() local(i j x y k cx cy px py snap enabled) (
 	getCurrentPoint();
 
 	//ui_colorfont(2,"Arial", 14, "b");
 	i=0;
 	loop(npoints, 
 		snap = points[i];
-
+		cx = snap[SNAP_X];
+		cy = snap[SNAP_Y];
 		enabled = (snap[SNAP_FLAGS] & IS_MUTE_FLAG) == 0;
 		enabled = enabled && (soloPoint<0 || soloPoint==i);
 
 		enabled ? ui_color(255,255,0,1) : ui_color(128,128,128,.7);
-		x = normToPhisicX(snap[SNAP_X]);
-		y = normToPhisicY(snap[SNAP_Y]);
+		x = normToPhisicX(cx);
+		y = normToPhisicY(cy);
 		gfx_circle(x,y,11,0, 1); 
 
 		// red ring around cur selected
@@ -437,6 +544,15 @@ function drawSnaps() local(i j x y k snap enabled) (
 		gfx_x = x - str_w/2+2;
 		gfx_y = y - str_h/2+1;
 		gfx_drawstr(mystr);
+
+		// satellite
+		px = normToPhisicX(getPointX(snap));
+		py = normToPhisicY(getPointY(snap));
+		ui_color(255,255,255);
+		gfx_a = (snap[SNAP_LEFT_WEIGHT]+snap[SNAP_RIGHT_WEIGHT])*.5;
+		gfx_mode=0;
+		gfx_circle(px, py, 1.5, 0,0); 
+		gfx_a = 1;
 
 		i += 1;
 	);

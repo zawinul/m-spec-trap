@@ -1,0 +1,33 @@
+hopsize = size / olaps;
+factor = srate / (hopsize * twopi);
+factor = srate * olaps / (size * twopi);
+
+
+scale = twopi * hopsize / size;
+scale = twopi * size / (size*olaps);
+scale = twop / olaps;
+
+
+phase_ = atan2(im_, re_);
+dph = phase_ - prev[k_];
+
+//this.freq[k_] = (tmp_ + k_ * this.scale) * this.factor;
+freq[i] = (dph + i * twop/olaps) * srate*olaps / (size * twopi);
+
+freq[i] = dph * srate*olaps / (size * twopi) 
+	+ i * twop*srate*olaps/(olaps*size*twopi)
+
+freq[i] = dph * srate*olaps / (size * twopi) 
+	+ i*srate/size;
+
+freq[i] = srate*(dph/twopi)/(size/olaps) 
+	+ i*srate/size;
+
+freq[i]*size = srate*(dph/twopi)*olaps 
+	+ i*srate;
+
+freq[i]*size/srate = dph*olaps/twopi + i;
+
+dph = (twopi/olaps)*(freq[i]*size/srate-i)
+
+-------------------------------------------------------------------
