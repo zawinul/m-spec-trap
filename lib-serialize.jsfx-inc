@@ -102,6 +102,7 @@ function deserializeFFTSnaps() local(i size snap ptr) (
 
 	i=0; 
 	loop(npoints, 
+		computePoint(i);
 		file_string(0, STR_POINT_NAMES+i); 
 		i+=1;
 	);

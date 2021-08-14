@@ -28,8 +28,9 @@ SNAP_HI_CUT = 12;
 SNAP_BOTTOM_CUT = 13;
 SNAP_MOVEMENT_V = 14;
 SNAP_MOVEMENT_R = 15;
+SNAP_P_SHIFT = 16;
 
-SNAP_LFO_PH	= 16;
+SNAP_LFO_PH	= 17;
 
 SNAP_LEFT_WEIGHT = 30;
 SNAP_RIGHT_WEIGHT = 31;
@@ -41,7 +42,7 @@ function setDataChanged() (
 );
 
 function initPVSnap(ptr)  (
-
+	a00_initPVSnap +=1;
 	ptr[SNAP_M] = ptr+N_INITIAL_PARAMETERS;
 	ptr[SNAP_F] = ptr[SNAP_M] + HALF_FFTSIZE;
 
@@ -55,6 +56,9 @@ function initPVSnap(ptr)  (
 	ptr[SNAP_TRANSP] = 0;
 	ptr[SNAP_LO_CUT] = 0;
 	ptr[SNAP_HI_CUT] = 1;
+	ptr[SNAP_LFO_PH] = 0;
+	ptr[SNAP_MOVEMENT_R] = 0;
+	ptr[SNAP_MOVEMENT_V] = 0;
 	ptr[SNAP_BOTTOM_CUT] = 0;
 	setDataChanged();
 	ptr;
@@ -108,6 +112,96 @@ function setInputData(destSnap) local(t, srcSnap) (
 );
 
 
+function dummyComputePoint(index) local (point bmin bmax band freq nfreq transp srcm srcf trgm trgf i g m ps) (
+	point = points[index];
+	srcm = point[SNAP_M];
+	srcf = point[SNAP_F];
+	trgm = COMPUTED_POINTS_AREA+index*FFTSIZE;
+	trgf = COMPUTED_POINTS_AREA+index*FFTSIZE+HALF_FFTSIZE;
+	memcpy(trgm, srcm, HALF_FFTSIZE);
+	memcpy(trgf, srcf, HALF_FFTSIZE);
+);
+
+function realComputePoint(index) local (point bmin bmax band freq nfreq transp srcm srcf trgm trgf i g m ps) (
+	point = points[index];
+	srcm = point[SNAP_M];
+	srcf = point[SNAP_F];
+	trgm = COMPUTED_POINTS_AREA+index*FFTSIZE;
+	trgf = COMPUTED_POINTS_AREA+index*FFTSIZE+HALF_FFTSIZE;
+
+	loCut = pow(point[SNAP_LO_CUT], 3)*(srate/2);
+	hiCut = pow(point[SNAP_HI_CUT], 3)*(srate/2);
+	bottomCut = pow(point[SNAP_BOTTOM_CUT], 6);
+
+	g = fromDb(discretize(point[SNAP_GAIN]*48));
+
+	bmin = -OVERLAPS/2+1;
+	bmax = OVERLAPS/2-1;
+	memset(trgm, 0, HALF_FFTSIZE);
+	memset(trgf, 0, HALF_FFTSIZE);
+	i=1;
+
+	transp = point[SNAP_TRANSP];
+	transp = pow(2, transp/12);
+
+	ps = point[SNAP_P_SHIFT];
+	ps = ps>=0 ? pow(ps, 5)*1000 : -pow(-ps, 5)*1000;
+	a00_ps=ps;
+	loop(HALF_FFTSIZE-1,
+		freq = (srcf[i]+ps)*transp;
+		freq>=loCut && freq<=hiCut && srcm[i]>bottomCut ? (
+			m = srcm[i]*g;
+			nfreq = freq * FFTSIZE/srate;
+			allocated = 0;
+
+			//try to allocate in the "right" band, if it is free
+			band = floor(nfreq+.5);
+			trgm[band]== 0 ? (
+				allocated = 1;
+				trgm[band] = m;
+				trgf[band] = freq;
+			);
+
+			//try to allocate in a free band in the range b+bmin,b+bmax
+			b = bmin;
+			loop(bmax-bmin+1,
+
+				band = floor(nfreq+.5) + b;
+				//band=i;
+				(band>=1) && (band <HALF_FFTSIZE) && (allocated==0) && (trgm[band]==0) ? (
+					allocated = 1;
+					trgm[band] = m;
+					trgf[band] = freq;
+				);
+				b += 1
+			);
+
+			allocated==0? ( // no free band found, look for a band with low magnitude
+				b = bmin;
+				loop(bmax-bmin+1,
+					band = floor(nfreq+.5) +b;
+					(band>=1) && (band <HALF_FFTSIZE)  && (allocated==0) && (trgm[band]<m) ? (
+							// my magn is higher than this, i take the band
+						allocated = 1;
+						trgm[band] = m;
+						trgf[band] = freq;
+					);
+					b+=1
+				);
+			);
+			// allocated==0 ? (
+			// 	// not found a good band to place our freq
+			// 	// we do nothing
+			// );
+			i+=1;
+		);
+	);
+);
+
+function computePoint(index) (
+	slider22>0 ? realComputePoint(index):dummyComputePoint(index);
+);
+
 function captureSnap() local(ptr) (
 
 	curHoveredPoint<0 ?(
@@ -118,13 +212,13 @@ function captureSnap() local(ptr) (
 		npoints +=1;
 		ptr[SNAP_X] = mouse_norm_x;
 		ptr[SNAP_Y] = mouse_norm_y;
-		//ptr[SNAP_LETTER] = 'A' + curSelected;
 		sprintf(STR_POINT_NAMES+curSelected, "spectre %c", 'A' + curSelected);
 	) : (
 		ptr = points[curSelected];
 	);
 	setInputData(ptr);
 	ptr[SNAP_LEFT_WEIGHT] = ptr[SNAP_RIGHT_WEIGHT] = 1;	// weight
+	computePoint(curSelected);
 	setDataChanged();
 );
 
@@ -188,75 +282,77 @@ function setEnhPivot() local(i enhPivotBase) (
 	);
 );
 
-function bandshiftpv(m,f) local(i freq nband) (
-	memset(mnorm, 0, HALF_FFTSIZE);
-	memset(fnorm, 0, HALF_FFTSIZE);
+// function bandshiftpv(m,f) local(i freq nband) (
+// 	memset(mnorm, 0, HALF_FFTSIZE);
+// 	memset(fnorm, 0, HALF_FFTSIZE);
 
-	nband = slider11>=0 ? pow(slider11,5) : -pow(-slider11,5);
-	nband = floor(HALF_FFTSIZE * nband);
-	nband>=0 ? (
-		memcpy(mnorm+nband, m, HALF_FFTSIZE-nband);
-		memcpy(fnorm+nband, f, HALF_FFTSIZE-nband);
-	) : (
-		memcpy(mnorm, m-nband, HALF_FFTSIZE+nband);
-		memcpy(fnorm, f-nband, HALF_FFTSIZE+nband);
-	);
+// 	nband = slider11>=0 ? pow(slider11,5) : -pow(-slider11,5);
+// 	nband = floor(HALF_FFTSIZE * nband);
+// 	nband>=0 ? (
+// 		memcpy(mnorm+nband, m, HALF_FFTSIZE-nband);
+// 		memcpy(fnorm+nband, f, HALF_FFTSIZE-nband);
+// 	) : (
+// 		memcpy(mnorm, m-nband, HALF_FFTSIZE+nband);
+// 		memcpy(fnorm, f-nband, HALF_FFTSIZE+nband);
+// 	);
 
-	memcpy(m, mnorm, HALF_FFTSIZE);
-	memcpy(f, fnorm, HALF_FFTSIZE);
-);
+// 	memcpy(m, mnorm, HALF_FFTSIZE);
+// 	memcpy(f, fnorm, HALF_FFTSIZE);
+// );
 
-function normalizepv(m,f) local(i freq nfreq b bmin bmax band) (
-	bmin = -OVERLAPS/2;
-	bmax = OVERLAPS/2;
-	memset(mnorm, 0, HALF_FFTSIZE);
-	memset(fnorm, 0, HALF_FFTSIZE);
-	//memset(fnormtot, 0, HALF_FFTSIZE);
+// function normalizepv(m,f) local(i freq nfreq b bmin bmax band) (
+// 	bmin = -OVERLAPS/2+1;
+// 	bmax = OVERLAPS/2-1;
+// 	memset(mnorm, 0, HALF_FFTSIZE);
+// 	memset(fnorm, 0, HALF_FFTSIZE);
+// 	//memset(fnormtot, 0, HALF_FFTSIZE);
 
-	a00_norm_c1 = a00_norm_c2 = a00_norm_c3 = 0;
-	i=1;
-	loop(HALF_FFTSIZE-1,
-		nfreq = (f[i]+globalPitchShift)*FFTSIZE/srate;
-		b = bmin;
-		allocated = 0;
-		//try to allocate in a free band
-		a000_nnn = bmax-bmin+1;
+// 	a00_norm_c1 = a00_norm_c1B = a00_norm_c2 = a00_norm_c3 = 0;
+// 	i=1;
+// 	loop(HALF_FFTSIZE-1,
+// 		nfreq = (f[i]+globalPitchShift)*FFTSIZE/srate;
+// 		b = bmin;
+// 		allocated = 0;
+// 		//try to allocate in a free band
+// 		a000_nnn = bmax-bmin+1;
 
-		loop(bmax-bmin+1,
-			band = floor(nfreq+.5) +b;
-			band>=1 && band <HALF_FFTSIZE && allocated==0 && mnorm[band]==0 ? (
-				allocated = 1;
-				a00_norm_c1 +=1;
-				mnorm[band] = m[i];
-				fnorm[band] = f[i];
-			);
-			b += 1
-		);
-		allocated==0? ( // no free band found, look for a band with low magnitude
-			b = bmin;
-			loop(bmax-bmin+1,
-				band = floor(nfreq+.5) +b;
-				band>=1 && band <HALF_FFTSIZE  && allocated==0 && mnorm[band]<m[i] ? (
-						// my magn is higher than this, i take the band
-					allocated = 1;
-					a00_norm_c2 +=1;
-					mnorm[band] = m[i];
-					fnorm[band] = f[i];
-				);
-				b+=1
-			);
-		);
-		allocated==0 ? (
-			// not found a good band to place our freq
-			a00_norm_c3 +=1;
-			// we do nothing
-		);
-		i+=1;
-	);
+// 		loop(bmax-bmin+1,
+// 			band = floor(nfreq+.5) +b;
+// 			//band=i;
+// 			band>=1 && band <HALF_FFTSIZE && allocated==0 && mnorm[band]==0 ? (
+// 				allocated = 1;
+// 				a00_norm_c1 +=1;
+// 				band!=i ? a00_norm_c1B+=1;
+// 				mnorm[band] = m[i];
+// 				fnorm[band] = f[i];
+// 			);
+// 			b += 1
+// 		);
+// 		allocated==0? ( // no free band found, look for a band with low magnitude
+// 			b = bmin;
+// 			loop(bmax-bmin+1,
+// 				band = floor(nfreq+.5) +b;
+// 				band>=1 && band <HALF_FFTSIZE  && allocated==0 && mnorm[band]<m[i] ? (
+// 						// my magn is higher than this, i take the band
+// 					allocated = 1;
+// 					a00_norm_c2 +=1;
+// 					mnorm[band] = m[i];
+// 					fnorm[band] = f[i];
+// 				);
+// 				b+=1
+// 			);
+// 		);
+// 		allocated==0 ? (
+// 			// not found a good band to place our freq
+// 			a00_norm_c3 +=1;
+// 			// we do nothing
+// 		);
+// 		i+=1;
+// 	);
 
-	memcpy(m, mnorm, HALF_FFTSIZE);
-	memcpy(f, fnorm, HALF_FFTSIZE);
-);
+// 	memcpy(m, mnorm, HALF_FFTSIZE);
+// 	memcpy(f, fnorm, HALF_FFTSIZE);
+// );
 
 
 
@@ -287,32 +383,33 @@ function interpolateSnaps() local(i j m wLeft wRight mag g
 
 		// transpose,gain, pan, filter, polarity
 		isInput = point[SNAP_FLAGS] & IS_INPUT_FLAG;
-		m = isInput ? lastInputSnap[SNAP_M] : point[SNAP_M];
-		f = isInput ? lastInputSnap[SNAP_F] : point[SNAP_F];
-		 
-		transp = point[SNAP_TRANSP];
-		transp = pow(2, transp/12);
+		// m = isInput ? lastInputSnap[SNAP_M] : point[SNAP_M];
+		// f = isInput ? lastInputSnap[SNAP_F] : point[SNAP_F];
 
-		g = fromDb(discretize(point[SNAP_GAIN]*48));
+		m = isInput ? lastInputSnap[SNAP_M] : COMPUTED_POINTS_AREA+j*FFTSIZE;
+		f = isInput ? lastInputSnap[SNAP_F] : COMPUTED_POINTS_AREA+j*FFTSIZE+HALF_FFTSIZE;
+
+		// transp = point[SNAP_TRANSP];
+		// transp = pow(2, transp/12);
+
+		// g = fromDb(discretize(point[SNAP_GAIN]*48));
 		pan = point[SNAP_PAN];
-		gainLeft = g*pow(clip(pan+1, 0, 1),3);
-		gainRight = g*pow(clip(1-pan, 0, 1),3);
+		gainLeft = pow(clip(pan+1, 0, 1),3);
+		gainRight = pow(clip(1-pan, 0, 1),3);
 
-		loCut = pow(point[SNAP_LO_CUT], 3)*(HALF_FFTSIZE-1);
-		hiCut = pow(point[SNAP_HI_CUT], 3)*(HALF_FFTSIZE-1);
-		bottomCut = pow(point[SNAP_BOTTOM_CUT], 6);
+		// loCut = pow(point[SNAP_LO_CUT], 3)*(HALF_FFTSIZE-1);
+		// hiCut = pow(point[SNAP_HI_CUT], 3)*(HALF_FFTSIZE-1);
+		// bottomCut = pow(point[SNAP_BOTTOM_CUT], 6);
 
 		polarity = (point[SNAP_FLAGS] & POLARITY_FLAG) ? -1 : 1;
 
 		i=0; 
 		loop(HALF_FFTSIZE,
-			freq = f[i]*transp*globalTranspose /*+globalPitchShift*/;
-			band = floor(i*transp*globalTranspose+.5);
+			freq = f[i]*globalTranspose;
+			band = floor(i*globalTranspose+.5);
 
 			band>=0 && band<HALF_FFTSIZE ? (
 				mag = m[i];
-				band<loCut || band>hiCut || mag<bottomCut ? mag = 0;
-				
 				mag = mag * wLeft * gainLeft;
 				ml[band] += mag * polarity;
 				wbandm_l[band] += wLeft; 
@@ -320,7 +417,6 @@ function interpolateSnaps() local(i j m wLeft wRight mag g
 				wbandf_l[band] += mag;
 
 				mag = m[i];
-				band<loCut || band>hiCut || mag<bottomCut ? mag = 0;
 				mag = mag * wRight * gainRight;
 				mr[band] += mag * polarity;
 				wbandm_r[band] += wRight; 
@@ -405,13 +501,13 @@ function interpolateSnaps() local(i j m wLeft wRight mag g
 		);
 	);
 
-	slider22>0? (
-		normalizepv(ml, fl);
-		normalizepv(mr, fr);
-	);
+	// slider22>0? (
+	// 	normalizepv(ml, fl);
+	// 	normalizepv(mr, fr);
+	// );
 
-	bandshiftpv(ml,fl);
-	bandshiftpv(mr,fr);
+	// bandshiftpv(ml,fl);
+	// bandshiftpv(mr,fr);
 
 	memcpy(drawSpecBufLeft,  ml, HALF_FFTSIZE);
 	memcpy(drawSpecBufRight, mr, HALF_FFTSIZE);
@@ -587,7 +683,7 @@ function drawSnaps() local(i j x y k cx cy px py snap enabled) (
 function duplicateSnap(index) local(src ptr) (
 	
 	src = points[index];
-	ptr = points[npoints] = ptr;
+	ptr = points[npoints];
 	initPVSnap(ptr);
 	npoints +=1;
 	
@@ -598,6 +694,17 @@ function duplicateSnap(index) local(src ptr) (
 	ptr[SNAP_M] = ptr+N_INITIAL_PARAMETERS;
 	ptr[SNAP_F] = ptr[SNAP_M] + HALF_FFTSIZE;
 	
+	ptr[SNAP_GAIN] = src[SNAP_GAIN];
+	ptr[SNAP_FLAGS] = src[SNAP_FLAGS]; 
+	ptr[SNAP_TRANSP] = src[SNAP_TRANSP];
+	ptr[SNAP_LO_CUT] = src[SNAP_LO_CUT];
+	ptr[SNAP_HI_CUT] = src[SNAP_HI_CUT];
+	ptr[SNAP_LFO_PH] = src[SNAP_LFO_PH];
+	ptr[SNAP_MOVEMENT_R] = src[SNAP_MOVEMENT_R];
+	ptr[SNAP_MOVEMENT_V] = src[SNAP_MOVEMENT_V];
+	ptr[SNAP_BOTTOM_CUT] = src[SNAP_BOTTOM_CUT];
+	ptr[SNAP_P_SHIFT] = src[SNAP_P_SHIFT];
+
 	npoints-1;
 	setDataChanged();
 );
@@ -627,7 +734,7 @@ function lin_drawFFT(ptr, left, top, width, height, hswap) local(x y xinc i base
 
 	i=0;
 	loop(HALF_FFTSIZE, 
-		y = toDb(ptr[i]); // pippo
+		y = toDb(ptr[i]); 
 		y = min(max(fftShowBase, y), fftShowTop);
 		y = (y-fftShowBase)/(fftShowTop-fftShowBase);
 		y = y*height;

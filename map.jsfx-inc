@@ -41,4 +41,5 @@ GMEM_CONTROL_STATUS     = SERIALIZE_AREA-1;
 
 
 local_memalloc_start	= 5000000;
+COMPUTED_POINTS_AREA	= 6000000;
 UI_MEMORY				= 7000000; // size  circa 3k

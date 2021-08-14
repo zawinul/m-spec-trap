@@ -1,4 +1,4 @@
-desc:paolo m-spec-trap
+ndesc:paolo m-spec-trap
 
 
 options:gmem=spectrap_mem
@@ -27,13 +27,10 @@ slider2: 0<0,1,.001>-y
 slider4: 0 <0,1,.001>-alpha weight 
 slider5: 0 <24,24,.01>-transp
 slider6: 0 <0,1,.001>-movement delay
-slider7: 0 <-1,1,.0001> pitch shift
 
 slider8:1<0,1,.001>-dry out
 slider9:0<0,1,.001>-send effect
 slider10:0<0,1,.001>-automove speed
-
-slider11:0<-1,1,.001>band shift
 
 slider12:.5<0,1,.001>-enh center
 slider13:0<-1,1,.001>-enh alpha up
@@ -46,8 +43,7 @@ slider18:0<0,1,.001>-automove radium
 slider20: 1 <0,1,.001>-fft show top
 slider21: .5 <0,1,.001>-fft show base
 
-slider22: -1 <-1,1,.1> temp norm
-
+slider22: -1<-1,1,.01> enable remap
 options:want_all_kb
 
 //-------------------------------  
@@ -143,7 +139,6 @@ function slidersToParameters() local (i)(
 	globalTransposeHt = slider5;
 	globalTranspose = pow(2,globalTransposeHt/12);
 
-	globalPitchShift = slider7>=0 ? pow(slider7, 3)*1000 : -pow(-slider7, 3)*1000;
 	alpha1 = slider21;
 	alpha2 = slider22;
 	alpha3 = slider23;
@@ -403,7 +398,7 @@ proc_t = time_precise();
 gainDry += (_gainDry-gainDry)*.0001;
 gainSend += (_gainSend-gainSend)*.0001;
 
-listenerDragging = dragged.obj == DRAGGED_OBJ_LISTENER && mouse_cap==1 && mouseIsInside();
+listenerDragging = (dragged.obj == DRAGGED_OBJ_LISTENER) && mouse_cap==1 && mouseIsInside();
 
 listenerDragging ? (
 	listener.center.x = fcursor_x;
@@ -419,10 +414,10 @@ yPLayLeft = yPLayRight = listener.y;
 
 
 // listenerDragging ? (
-// 	xPlayLeft  = fcursor_x - LROffset;
-// 	yPlayLeft  = fcursor_y;
-// 	xPlayRight = fcursor_x + LROffset;
-// 	yPlayRight = fcursor_y;
+//      xPlayLeft  = fcursor_x - LROffset;
+//      yPlayLeft  = fcursor_y;
+//      xPlayRight = fcursor_x + LROffset;
+//      yPlayRight = fcursor_y;
 // );
 
 left = spl0;
