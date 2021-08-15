@@ -277,9 +277,6 @@ function ui_showSpectreSliders() (
 			slider20 = control_slider_x(slider20, 0, 1, 0);
 			slider20<slider21 ? slider20=slider21;
 		ui_pop();
-
-
-
 	);
 
 );
@@ -645,11 +642,13 @@ function ui_edit_panel() local(point istate gain pan lo_cut hi_cut transp transp
 	ui_pop();
 
 	ui_split_top(20);
-		ui_split_leftratio(1/4);
+		ui_split_leftratio(1/5);
 			muteValue = (point[SNAP_FLAGS] & IS_MUTE_FLAG)!=0;
 			muteState = twoStateButton(muteValue, "M", 2, muteState);
 			muteValue = twoStateButtonGetValue(muteState);
-			muteValue ? point[SNAP_FLAGS] |= IS_MUTE_FLAG : point[SNAP_FLAGS] &= 0xFFFF~IS_MUTE_FLAG;
+			muteValue 
+				? point[SNAP_FLAGS] |= IS_MUTE_FLAG 
+				: point[SNAP_FLAGS] &= 0xFFFF~IS_MUTE_FLAG;
 		ui_split_next();
 			soloValue = soloPoint == curEditingPoint;
 			soloState = twoStateButton(soloValue, "S", 2, soloState);
@@ -661,12 +660,23 @@ function ui_edit_panel() local(point istate gain pan lo_cut hi_cut transp transp
 			polarityValue = (point[SNAP_FLAGS] & POLARITY_FLAG)!=0;
 			polarityState = twoStateButton(polarityValue, "+/-", 2, polarityState);
 			polarityValue = twoStateButtonGetValue(polarityState);
-			polarityValue ? point[SNAP_FLAGS] |= POLARITY_FLAG : point[SNAP_FLAGS] &= 0xFFFF~POLARITY_FLAG;
+			polarityValue 
+				? point[SNAP_FLAGS] |= POLARITY_FLAG 
+				: point[SNAP_FLAGS] &= 0xFFFF~POLARITY_FLAG;
 		ui_split_next();
 			isInputValue = (point[SNAP_FLAGS] & IS_INPUT_FLAG)!=0;
 			isInputState = twoStateButton(isInputValue, "in", 2, isInputState);
 			isInputValue = twoStateButtonGetValue(isInputState);
-			isInputValue ? point[SNAP_FLAGS] |= IS_INPUT_FLAG : point[SNAP_FLAGS] &= 0xFFFF~IS_INPUT_FLAG;
+			isInputValue 
+				? point[SNAP_FLAGS] |= IS_INPUT_FLAG 
+				: point[SNAP_FLAGS] &= 0xFFFF~IS_INPUT_FLAG;
+		ui_split_next();
+			isNormalizedValue = (point[SNAP_FLAGS] & IS_NORMALIZED_FLAG)!=0;
+			isNormalizedState = twoStateButton(isNormalizedValue, "N", 2, isNormalizedState);
+			isNormalizedValue = twoStateButtonGetValue(isNormalizedState);
+			isNormalizedValue 
+				? point[SNAP_FLAGS] |= IS_NORMALIZED_FLAG 
+				: point[SNAP_FLAGS] &= 0xFFFF~IS_NORMALIZED_FLAG;
 		ui_pop();
 	ui_pop();
 

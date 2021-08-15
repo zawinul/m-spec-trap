@@ -43,7 +43,6 @@ slider18:0<0,1,.001>-automove radium
 slider20: 1 <0,1,.001>-fft show top
 slider21: .5 <0,1,.001>-fft show base
 
-slider22: -1<-1,1,.01> enable remap
 options:want_all_kb
 
 //-------------------------------  
@@ -536,10 +535,6 @@ aaa.fftratio = aaa.timeFFT/elapsed();
 @gfx 400 200
 // --------------------------------------------------
 
-// debug
-a000_ml = ml[floor(rand()*HALF_FFTSIZE)];
-a000_mr = mr[floor(rand()*HALF_FFTSIZE)];
-//a000_wRight = points[0][SNAP_RIGHT_WEIGHT];
 
 
 

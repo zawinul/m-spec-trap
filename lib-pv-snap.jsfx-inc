@@ -13,6 +13,7 @@ function pvSnapSize() (
 POLARITY_FLAG=1;
 IS_INPUT_FLAG=2;
 IS_MUTE_FLAG=4;
+IS_NORMALIZED_FLAG=8;
 
 SNAP_M = 0;
 SNAP_F = 1;
@@ -83,7 +84,7 @@ function pointLabel(i) local(flags lab point) (
 	lab = STR_POINT_LABEL;
 	point = points[i];
 	i<0 ? sprintf(lab, "?") : (
-		flags = point[SNAP_FLAGS] & (IS_ZERO_FLAG | IS_INPUT_FLAG  | POLARITY_FLAG );
+		flags = point[SNAP_FLAGS] & (IS_ZERO_FLAG | IS_INPUT_FLAG  | POLARITY_FLAG  );
 		flags & IS_ZERO_FLAG ? (
 			sprintf(lab, "0 %c" , ASCII_A+i);
 		) : (
@@ -198,8 +199,10 @@ function realComputePoint(index) local (point bmin bmax band freq nfreq transp s
 	);
 );
 
-function computePoint(index) (
-	slider22>0 ? realComputePoint(index):dummyComputePoint(index);
+function computePoint(index)  (
+	points[index][SNAP_FLAGS] & IS_NORMALIZED_FLAG
+		? realComputePoint(index)
+		: dummyComputePoint(index);
 );
 
 function captureSnap() local(ptr) (
@@ -501,13 +504,6 @@ function interpolateSnaps() local(i j m wLeft wRight mag g
 		);
 	);
 
-	// slider22>0? (
-	// 	normalizepv(ml, fl);
-	// 	normalizepv(mr, fr);
-	// );
-
-	// bandshiftpv(ml,fl);
-	// bandshiftpv(mr,fr);
 
 	memcpy(drawSpecBufLeft,  ml, HALF_FFTSIZE);
 	memcpy(drawSpecBufRight, mr, HALF_FFTSIZE);

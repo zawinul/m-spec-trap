@@ -155,7 +155,6 @@ function log.draw() local(i x y w h) (
 
 local_memalloc_ptr = local_memalloc_start;
 local_memalloc_margin = 8;
-//memalloc_start = __memtop()-600000;
 memalloc_start = 0;
 
 
