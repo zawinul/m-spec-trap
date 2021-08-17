@@ -55,14 +55,16 @@ function serializeFFTSnaps() local(i size) (
 	serializeCursor = 0;
 
 	_put(npoints);
-	_put(pvSnapSize());
+	_put(pvSnapSerializedSize());
+	a00_serialize_snapsize = pvSnapSerializedSize();
 	i = 0;
 	loop(npoints,
-		_putn(points[i], pvSnapSize());
+		_putn(points[i], pvSnapSerializedSize());
 		i+=1;
 	);
 
 	size = serializeCursor;
+	a00_serialize_size = size;
 	file_var(0, size);
 	//file_mem(0, serializeBase, size);
 	packetWrite(serializeBase, size);
@@ -89,14 +91,12 @@ function deserializeFFTSnaps() local(i size snap ptr) (
 
 	a000_deserialize_npoints = npoints;
 	snapsize = _get();
+	a00_deserialize_snapsize = snapsize;
 
 	i = 0;
 	loop(npoints,
 		ptr = points[i];
 		_getn(ptr, snapsize);
-
-		ptr[SNAP_M] = ptr+N_INITIAL_PARAMETERS;
-		ptr[SNAP_F] = ptr[SNAP_M] + HALF_FFTSIZE;
 		i += 1;
 	);
 

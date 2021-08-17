@@ -21,8 +21,8 @@ out_pin:right
 out_pin:sendleft 
 out_pin:sendright 
 
-slider1: 0<0,1,.001>-x 
-slider2: 0<0,1,.001>-y 
+slider1: 0<0,1,.001>x 
+slider2: 0<0,1,.001>y 
 
 slider4: 0 <0,1,.001>-alpha weight 
 slider5: 0 <24,24,.01>-transp
@@ -397,12 +397,12 @@ proc_t = time_precise();
 gainDry += (_gainDry-gainDry)*.0001;
 gainSend += (_gainSend-gainSend)*.0001;
 
-listenerDragging = (dragged.obj == DRAGGED_OBJ_LISTENER) && mouse_cap==1 && mouseIsInside();
+listenerDragging = (dragged.obj == DRAGGED_OBJ_LISTENER)  && mouse_cap==1 && mouseIsInside();
 
-listenerDragging ? (
+//listenerDragging ? (
 	listener.center.x = fcursor_x;
 	listener.center.y = fcursor_y;
-);
+//);
 
 listener.x = listener.center.x + sin(autoMovePh)*.5*autoMoveRadius;
 listener.y = listener.center.y + cos(autoMovePh)*.5*autoMoveRadius;
@@ -485,10 +485,10 @@ enableSound ? (
 		status == STATUS_RECORD_PREVIEW ? (
 			snap = points[(curSelected>=0) ? curSelected : npoints-1];
 			fft_t = time_precise();
-			memcpy(drawSpecBufLeft,  snap[SNAP_M], HALF_FFTSIZE);
-			memcpy(drawSpecBufRight, snap[SNAP_M], HALF_FFTSIZE);
-			pvout1.pvout_do(snap[SNAP_M],  snap[SNAP_F]);
-			pvout2.pvout_do(snap[SNAP_M],  snap[SNAP_F]);
+			memcpy(drawSpecBufLeft,  snapMPtr(snap), HALF_FFTSIZE);
+			memcpy(drawSpecBufRight, snapMPtr(snap), HALF_FFTSIZE);
+			pvout1.pvout_do(snapMPtr(snap),  snapFPtr(snap));
+			pvout2.pvout_do(snapMPtr(snap),  snapFPtr(snap));
 			aaa.timeFFT += time_precise()-fft_t;
 		);
 		status == STATUS_RECORD_NORMAL ? (

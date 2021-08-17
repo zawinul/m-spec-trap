@@ -1,3 +1,7 @@
+todo
+- terminare lo store
+
+--------------------------
 hopsize = size / olaps;
 factor = srate / (hopsize * twopi);
 factor = srate * olaps / (size * twopi);

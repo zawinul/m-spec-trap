@@ -57,12 +57,12 @@ function showNodeWeight() local(i point x y w h wl wr stepy sxSpace) (
 		wl = point[SNAP_LEFT_WEIGHT]/totalWeightLeft;
 		wr = point[SNAP_RIGHT_WEIGHT]/totalWeightRight;
 
-		gfx_mode=1;
-		gfx_set(0,0,255,.25);
-		gfx_rect(x+2+sxSpace,y+2,(w-4-sxSpace)*wl,h-4);
+		gfx_mode=0;
+		gfx_set(.25,.25,.65,1,0);
+		gfx_rect(x+2+sxSpace,y+1,(w-4-sxSpace)*wl,h/2-1);
 
-		gfx_set(255,0,0,.25);
-		gfx_rect(x+2+sxSpace,y+2,(w-4-sxSpace)*wr,h-4);
+		gfx_set(.65,.25,.25,1,0);
+		gfx_rect(x+2+sxSpace,y+h/2+1,(w-4-sxSpace)*wr,h/2-1);
 		gfx_mode=0;
 
 		gfx_set(255,255,255,.65);
@@ -131,6 +131,7 @@ function endEditing() (
 	isEditMode()  ? (
 		status = STATUS_PLAY_NORMAL;
  		curEditingPoint = -1;
+		 soloPoint=-1;
 	)
 );
 
@@ -726,6 +727,7 @@ function getMousePosition() local(snap) (
 	
 	phMouse.x = mouse_x;
 	phMouse.y = mouse_y;
+
 	mouse_norm_x = phisicToNormX(phMouse.x);
 	mouse_norm_y = phisicToNormY(phMouse.y);
 	//mouseIsInside = (mouse_norm_x>=0) && (mouse_norm_y>=0) && (mouse_norm_x<=1) && (mouse_norm_y<=1);
@@ -735,9 +737,6 @@ function getMousePosition() local(snap) (
 		oldMousecap = mouse_cap;
 	);
 
-	// cursor_x = slider1;
-	// cursor_y = slider2;
-
 
 	mouseIsInside() && mouse_cap==1 && !isRecordMode() ? (
 		_tempcx = cursor_x;
@@ -745,6 +744,12 @@ function getMousePosition() local(snap) (
 		cursor_y = mouse_norm_y;	
 
 		a00int_cursorx += abs(cursor_x-_tempcx);
+	);
+
+	slider1!=old_slider1 || slider2!=old_slider2 ? (
+		cursor_x = (old_slider1 = slider1);
+		cursor_y = (old_slider2 = slider2);
+
 	);
 
 

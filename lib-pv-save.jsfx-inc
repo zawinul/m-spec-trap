@@ -12,7 +12,7 @@ function initPVSaveLib() local(i t) (
 	loop(SNAP_QUEUE_LENGTH, 
 		snapQueue[i] = t;
 		initPVSnap(t);
-		t += pvSnapSize();  
+		t += pvSnapSerializedSize();  
 		i+=1;
 	);
 	a000_snapQueueSize = t-QUEUE_MEMORY;
@@ -23,8 +23,8 @@ function initPVSaveLib() local(i t) (
 function savePV(mag freq) local(snap)  (
 	snap = lastInputSnap = snapQueue[nextSnapIn];
 
-	memcpy(snap[SNAP_M], mag, HALF_FFTSIZE);
-	memcpy(snap[SNAP_F], freq, HALF_FFTSIZE);
+	memcpy(snapMPtr(snap), mag, HALF_FFTSIZE);
+	memcpy(snapFPtr(snap), freq, HALF_FFTSIZE);
 
 	nextSnapIn = (nextSnapIn+1) % SNAP_QUEUE_LENGTH;
 );

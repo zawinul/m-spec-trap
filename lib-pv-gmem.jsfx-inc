@@ -51,14 +51,14 @@ function serializePoint(p) local(i n ptr str adr) (
 	);
 
 	i=0;
-	adr = ptr[SNAP_M];
+	adr = snapMPtr(ptr);
 	loop(HALF_FFTSIZE,
 		gwrite(adr[i]);
 		i+=1;
 	);
 
 	i=0;
-	adr = ptr[SNAP_F];
+	adr = snapFPtr(ptr);
 	loop(HALF_FFTSIZE,
 		gwrite(adr[i]);
 		i+=1;
@@ -93,7 +93,7 @@ function deserializePoint(p) local(i n c ptr str adr) (
 	);
 
 	i=0;
-	adr = ptr[SNAP_M];
+	adr = snapMPtr(ptr);
 	sprintf(log.get(), "%s PTR=%D gmemPtr=%d Madr=%d", str, PTR, gmemPtr, adr);
 	loop(HALF_FFTSIZE,
 		adr[i] = gread();
@@ -101,7 +101,7 @@ function deserializePoint(p) local(i n c ptr str adr) (
 	);
 
 	i=0;
-	adr = ptr[SNAP_F];
+	adr = snapFPtr(ptr);
 	loop(HALF_FFTSIZE,
 		adr[i] = gread();
 		i+=1;
