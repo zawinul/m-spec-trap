@@ -142,6 +142,9 @@ function previewInit()(
 		getSnapRotate = 0;
 		oldGetSnapRotate = -1;
 		previewMouseX = mouse_norm_x;
+
+		prerecord.startAcquisition();
+
 		status = STATUS_RECORD_PREVIEW;
 	);
 );
@@ -150,6 +153,7 @@ function previewEnd()(
 	status == STATUS_RECORD_PREVIEW ? (
 		restartPh();
 		status = STATUS_RECORD_NORMAL;
+		prerecord.stopAcquisition();
 	);
 );
 
@@ -756,9 +760,9 @@ function getMousePosition() local(snap) (
 	status == STATUS_RECORD_PREVIEW ? (
 		dx = previewMouseX-mouse_norm_x;
 		dx = max(0, min(dx, .5));
-		getSnapRotate = floor(dx*2*(SNAP_QUEUE_LENGTH-1));
-		oldGetSnapRotate!=getSnapRotate ? setInputData(points[npoints-1]);
-		oldGetSnapRotate=getSnapRotate;
+		//getSnapRotate = floor(dx*2*(SNAP_QUEUE_LENGTH-1));
+		//oldGetSnapRotate!=getSnapRotate ? setInputData(points[npoints-1]);
+		//oldGetSnapRotate=getSnapRotate;
 	);
 	
 	getCurrentPoint();
@@ -892,3 +896,80 @@ function do_ui()(
 	ui_screen() == "sys" ? ui_system();
 );
 
+// function showPreRecord() local(i x dx s y w wf) (
+// 	w = dragArea.right-dragArea.left;
+// 	wf = w*FFTSIZE/PRERECORD_SIZE;
+// 	dx = w/PRERECORD_SIZE;
+// 	i=0;
+// 	gfx_set(1,1,1,.1);
+
+// 	// fft area
+// 	preRecordStatus == PRERECORD_STATUS_ROLLING ? (
+// 		gfx_set(1,1,1,.25);
+// 		gfx_rect(dragArea.left + w - wf, 0, wf, 40);
+// 	);
+// 	preRecordStatus == PRERECORD_STATUS_ACQUIRING ? (
+// 		l = PRERECORD_SIZE/2-FFTSIZE/2;
+// 		r = PRERECORD_SIZE/2+FFTSIZE/2;
+// 		d = preRecordInsert-r;
+// 		x = dragArea.left + (PRERECORD_SIZE-d)*w/PRERECORD_SIZE;
+// 		gfx_set(1,1,1,.25);
+// 		gfx_rect(x, 0, wf, 40);		
+// 	);
+// 	preRecordStatus == PRERECORD_STATUS_FULL ? (
+// 		x = dragArea.left + (preRecordListen-FFTSIZE/2)*w/PRERECORD_SIZE;
+// 		gfx_set(1,1,1,.25);
+// 		gfx_rect(x, 0, wf, 40);		
+// 	);
+
+// 	// samples
+// 	preRecordStatus == PRERECORD_STATUS_ACQUIRING || preRecordStatus == PRERECORD_STATUS_ROLLING ? (
+// 		x = dragArea.left;
+// 		i = 0;
+// 		loop(PRERECORD_SIZE, 
+// 			y = PRERECORD_AREA[(i+preRecordInsert)%PRERECORD_SIZE];
+// 			gfx_set(1,1,1,.1);
+// 			gfx_line(x, 20,x,20+20*y);
+// 			x+=dx;
+// 			i+=1
+// 		);
+// 	);
+
+// 	preRecordStatus == PRERECORD_STATUS_FULL ? (
+// 		x = dragArea.left;
+// 		i = 0;
+// 		loop(PRERECORD_SIZE, 
+// 			y = PRERECORD_AREA[i];
+		
+// 			gfx_set(1,1,1,.1);
+// 			gfx_line(x, 20,x,20+20*y);
+// 			x+=dx;
+// 			i+=1
+// 		);
+// 	);
+
+
+// )
+
+function showPreRecord() local(i x dx s y w wf yc yh) (
+	w = dragArea.right-dragArea.left;
+	wf = w*FFTSIZE/PRERECORD_SIZE;
+	dx = w/PRERECORD_SIZE;
+	yc = 50;
+	yh = 50;
+	// fft area
+	gfx_set(1,1,1,.25);
+	gfx_rect(dragArea.left + preRecordLeft*w/PRERECORD_SIZE, yc-yh, wf, 2*yh);
+
+
+	i=0;
+	gfx_set(1,1,1,.1);
+	x = dragArea.left;
+	i = 0;
+	loop(PRERECORD_SIZE, 
+		y = PRERECORD_AREA[i];
+		gfx_line(x, yc,x,yc+yh*y);
+		x+=dx;
+		i+=1
+	);
+)

@@ -122,6 +122,7 @@ function mainInit() (
 	enableSound = saveEnableSound;
 	a00_pvSnapSize=pvSnapSize();
 
+	prerecord.init();
 ); 
 
 function slidersToParameters() local (i)(
@@ -412,12 +413,6 @@ xPlayRight = listener.x+LROffset;
 yPLayLeft = yPLayRight = listener.y;
 
 
-// listenerDragging ? (
-//      xPlayLeft  = fcursor_x - LROffset;
-//      yPlayLeft  = fcursor_y;
-//      xPlayRight = fcursor_x + LROffset;
-//      yPlayRight = fcursor_y;
-// );
 
 left = spl0;
 right = spl1; 
@@ -433,8 +428,21 @@ autoMovePh += autoMoveInc;
 
 
 enableSound ? (
+	zzk=(zzk+1)%(FFTSIZE*4);
 
-	pvin.pvin_do(left);
+	isRecordMode()? (
+		prerecord.setsample((left+right)/2); 
+		left=right=PRERECORD_AREA[pvin.fftobj.incount+preRecordLeft];
+		// preFFT = pvin.fftobj.incount+1>=FFTSIZE;
+		// preFFT ? (
+		// 	// fft will happen at this loop
+		// 	prerecord.getBuffer(pvin.fftobj.inbuf);
+			
+		// 	a00_fft_happens+=1;
+		// );
+	);
+
+	pvin.pvin_do((left+right)/2);
 
 
 	pvOutLeft = pvout1.pvout_get_output(pvin.count);
@@ -468,31 +476,29 @@ enableSound ? (
 
 	pvin.ready ? (
 
-		// prova
-		__dmin=0; 
-		__dmax=0;
-		__i=1;
-		loop(HALF_FFTSIZE-1,
-			__f = pvin.freq[__i]*FFTSIZE/srate;
-			__delta = __f - __i;
-			__delta>__dmax ? __dmax=__delta;
-			__delta<__dmin ? __dmin=__delta;
-			__i+=1
-		);
-
-
-
 		status == STATUS_RECORD_PREVIEW ? (
 			snap = points[(curSelected>=0) ? curSelected : npoints-1];
+			memcpy(snapMPtr(snap), pvin.magn, HALF_FFTSIZE);
+			memcpy(snapFPtr(snap), pvin.freq, HALF_FFTSIZE);
+
 			fft_t = time_precise();
 			memcpy(drawSpecBufLeft,  snapMPtr(snap), HALF_FFTSIZE);
 			memcpy(drawSpecBufRight, snapMPtr(snap), HALF_FFTSIZE);
-			pvout1.pvout_do(snapMPtr(snap),  snapFPtr(snap));
-			pvout2.pvout_do(snapMPtr(snap),  snapFPtr(snap));
+
+			// pvout1.pvout_do(snapMPtr(snap),  snapFPtr(snap));
+			// pvout2.pvout_do(snapMPtr(snap),  snapFPtr(snap));
+
+			pvout1.pvout_do(pvin.magn,  pvin.freq);
+			pvout2.pvout_do(pvin.magn,  pvin.freq);
+
+			//  setInputData(npoints-1, pvin.magn, pvin.freq);
+
 			aaa.timeFFT += time_precise()-fft_t;
 		);
+
+
 		status == STATUS_RECORD_NORMAL ? (
-			savePV(pvin.magn, pvin.freq);
+			//savePV(pvin.magn, pvin.freq);
 			
 			memcpy(drawSpecBufLeft, pvin.magn, HALF_FFTSIZE);
 			memcpy(drawSpecBufRight, pvin.magn, HALF_FFTSIZE);
@@ -592,3 +598,5 @@ disableSerializeOnGMem==0 ? (
 	);
 	needsGmemDump() ? serializeOnGMem(); // save
 );
+
+isRecordMode()? showPreRecord();

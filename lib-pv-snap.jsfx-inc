@@ -115,14 +115,23 @@ function pointLabel(i) local(flags lab point) (
 );
 
 
-function setInputData(destSnap) local(t, srcSnap) (
-	t = (nextSnapIn-1-getSnapRotate+SNAP_QUEUE_LENGTH) % SNAP_QUEUE_LENGTH;
-	t = clip(t, 0, SNAP_QUEUE_LENGTH-1);
-	srcSnap = snapQueue[t];
-	memcpy(snapMPtr(destSnap), snapMPtr(srcSnap), HALF_FFTSIZE);
-	memcpy(snapFPtr(destSnap), snapFPtr(srcSnap), HALF_FFTSIZE);
+// function OLD_setInputData(destSnap) local(t, srcSnap) (
+// 	t = (nextSnapIn-1-getSnapRotate+SNAP_QUEUE_LENGTH) % SNAP_QUEUE_LENGTH;
+// 	t = clip(t, 0, SNAP_QUEUE_LENGTH-1);
+// 	srcSnap = snapQueue[t];
+// 	memcpy(snapMPtr(destSnap), snapMPtr(srcSnap), HALF_FFTSIZE);
+// 	memcpy(snapFPtr(destSnap), snapFPtr(srcSnap), HALF_FFTSIZE);
+// 	setDataChanged();
+// );
+
+
+function setInputData(index m f) local(point) (
+	point = points[index];
+	memcpy(snapMPtr(point), snapMPtr(m), HALF_FFTSIZE);
+	memcpy(snapFPtr(point), snapFPtr(f), HALF_FFTSIZE);
 	setDataChanged();
 );
+
 
 
 function fixedComputePoint(index) local (point bmin bmax band freq nfreq transp srcm srcf trgm trgf i g m ps loCut hiCut bottomCut) (
@@ -262,7 +271,9 @@ function captureSnap() local(ptr) (
 	) : (
 		ptr = points[curSelected];
 	);
-	setInputData(ptr);
+
+	//setInputData(ptr);
+	memset(snapMPtr(snap), 0, HALF_FFTSIZE);
 	ptr[SNAP_LEFT_WEIGHT] = ptr[SNAP_RIGHT_WEIGHT] = 1;	// weight
 	computePoint(curSelected);
 	setDataChanged();

@@ -32,4 +32,112 @@ function savePV(mag freq) local(snap)  (
 
 
 getSnapRotate = 0;
+// -------------- PRE RECORD ------------------
 
+PRERECORD_STATUS_ROLLING = 0;
+PRERECORD_STATUS_ACQUIRING = 1;
+PRERECORD_STATUS_FULL = 2;
+
+preRecordInsert=0;
+preRecordListen=0;
+preRecordStatus = PRERECORD_STATUS_ROLLING;
+
+preRecordLeft = 0;
+preRecordRight = 0;
+
+function prerecord.init() (
+	memset(PRERECORD_AREA, PRERECORD_SIZE, 0);
+	preRecordLeft = PRERECORD_SIZE/2 - FFTSIZE/2;
+	preRecordRight = PRERECORD_SIZE/2 + FFTSIZE/2;
+	preRecordInsert=preRecordRight;
+	preRecordStatus = PRERECORD_STATUS_ROLLING;
+	preRecordInsert=0;
+
+);
+
+function prerecord.rotateBuffer() local(i s) (
+	memcpy(PRERECORD_TMP, PRERECORD_AREA, PRERECORD_SIZE);
+	memset(PRERECORD_AREA, 0, PRERECORD_SIZE); 
+	i = 0;
+	loop(preRecordRight, 
+		PRERECORD_AREA[i] = PRERECORD_TMP[(i+preRecordInsert-preRecordRight) % PRERECORD_SIZE];
+		i+=1);
+	preRecordInsert = preRecordRight;
+	preRecordStatus = PRERECORD_STATUS_ACQUIRING;
+);
+
+function prerecord.setsample(sample) local (st nextp)(
+	needRotateBuffer ? (
+		prerecord.rotateBuffer();
+		needRotateBuffer=0;
+	);
+	st = preRecordStatus;
+	st == PRERECORD_STATUS_ROLLING ? (
+		// memcpy(PRERECORD_AREA, PRERECORD_AREA+1, preRecordRight);
+		// PRERECORD_AREA[preRecordRight] = sample;
+		// preRecordListen = (preRecordInsert-FFTSIZE)  % PRERECORD_SIZE;
+		PRERECORD_AREA[preRecordInsert] = sample;
+		PRERECORD_AREA[(preRecordInsert+PRERECORD_SIZE/2)% PRERECORD_SIZE] = 0;
+		preRecordInsert = (preRecordInsert+1) % PRERECORD_SIZE;
+	);
+	st == PRERECORD_STATUS_ACQUIRING ? (
+		nextp = preRecordInsert+1;
+		nextp >= PRERECORD_SIZE ?  (
+			preRecordStatus = PRERECORD_STATUS_FULL;
+		) : (
+			PRERECORD_AREA[preRecordInsert] = sample;
+			preRecordInsert = nextp;
+		);
+	);
+	// st == PRERECORD_STATUS_FULL ? (
+	// );
+);
+
+function prerecord.stopAcquisition() (
+	prerecord_stop00+=1;
+
+	prerecord.init();
+);
+
+function prerecord.startAcquisition() local(i s) (
+	needRotateBuffer = 1;
+);
+
+
+
+function prerecord.getBuffer(buffer) local(l  r w i) (
+	preRecordStatus == PRERECORD_STATUS_ROLLING ? (
+		i = 0;
+		loop(FFTSIZE, 
+			//buffer[i] = PRERECORD_AREA[(preRecordInsert-FFTSIZE+i+w) % PRERECORD_SIZE];
+			buffer[i] = PRERECORD_AREA[i+preRecordLeft];
+			i+=1
+		);
+	);
+	// preRecordStatus == PRERECORD_STATUS_ACQUIRING? (
+	// 	i = 0;
+	// 	ph=rand();
+	// 	loop(FFTSIZE, 
+	// 		s = sin(i*.01+ph);
+	// 		s=s*s*s;
+	// 		s=s*s*s;
+	// 		buffer[i] = s;
+	// 		i+=1
+	// 	);
+	// );
+	preRecordStatus == PRERECORD_STATUS_ACQUIRING? (
+		i=0;
+		loop(FFTSIZE, 
+			buffer[i] = PRERECORD_AREA[i+preRecordLeft];
+			i+=1
+		);
+	);
+	preRecordStatus == PRERECORD_STATUS_FULL ? (
+		i = 0;
+		loop(FFTSIZE, 
+			buffer[i] = PRERECORD_AREA[i+preRecordLeft];
+			i+=1
+		);
+	);
+		
+);

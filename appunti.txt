@@ -1,6 +1,7 @@
 todo
 - terminare lo store
-
+- non si devono vedere le barre in mode record
+- slider x-y
 --------------------------
 hopsize = size / olaps;
 factor = srate / (hopsize * twopi);
